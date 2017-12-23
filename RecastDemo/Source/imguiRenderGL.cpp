@@ -19,9 +19,9 @@
 #define _USE_MATH_DEFINES
 #include <cmath>
 #include <cstdio>
-#include "imgui.h"
-#include "SDL.h"
-#include "SDL_opengl.h"
+#include <imgui.h>
+#include <SDL.h>
+#include <SDL_opengl.h>
 
 // Some math headers don't have PI defined.
 static const float PI = 3.14159265f;
@@ -32,7 +32,7 @@ void* imguimalloc(size_t size, void* userptr);
 #define STBTT_malloc(x,y)    imguimalloc(x,y)
 #define STBTT_free(x,y)      imguifree(x,y)
 #define STB_TRUETYPE_IMPLEMENTATION
-#include "stb_truetype.h"
+#include <stb_truetype.h>
 
 void imguifree(void* ptr, void* /*userptr*/)
 {

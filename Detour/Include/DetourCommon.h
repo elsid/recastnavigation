@@ -19,7 +19,7 @@
 #ifndef DETOURCOMMON_H
 #define DETOURCOMMON_H
 
-#include "DetourMath.h"
+#include <DetourMath.h>
 #include <stddef.h>
 
 /**

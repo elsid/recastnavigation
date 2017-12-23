@@ -21,22 +21,22 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "SDL.h"
-#include "SDL_opengl.h"
+#include <SDL.h>
+#include <SDL_opengl.h>
 #ifdef __APPLE__
 #	include <OpenGL/glu.h>
 #else
 #	include <GL/glu.h>
 #endif
-#include "imgui.h"
-#include "NavMeshTesterTool.h"
-#include "Sample.h"
-#include "Recast.h"
-#include "RecastDebugDraw.h"
-#include "DetourNavMesh.h"
-#include "DetourNavMeshBuilder.h"
-#include "DetourDebugDraw.h"
-#include "DetourCommon.h"
+#include <imgui.h>
+#include <NavMeshTesterTool.h>
+#include <Sample.h>
+#include <Recast.h>
+#include <RecastDebugDraw.h>
+#include <DetourNavMesh.h>
+#include <DetourNavMeshBuilder.h>
+#include <DetourDebugDraw.h>
+#include <DetourCommon.h>
 
 #ifdef WIN32
 #	define snprintf _snprintf

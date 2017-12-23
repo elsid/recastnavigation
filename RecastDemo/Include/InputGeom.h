@@ -19,8 +19,8 @@
 #ifndef INPUTGEOM_H
 #define INPUTGEOM_H
 
-#include "ChunkyTriMesh.h"
-#include "MeshLoaderObj.h"
+#include <ChunkyTriMesh.h>
+#include <MeshLoaderObj.h>
 
 static const int MAX_CONVEXVOL_PTS = 12;
 struct ConvexVolume

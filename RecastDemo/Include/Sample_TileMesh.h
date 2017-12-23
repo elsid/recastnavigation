@@ -19,10 +19,10 @@
 #ifndef RECASTSAMPLETILEMESH_H
 #define RECASTSAMPLETILEMESH_H
 
-#include "Sample.h"
-#include "DetourNavMesh.h"
-#include "Recast.h"
-#include "ChunkyTriMesh.h"
+#include <Sample.h>
+#include <DetourNavMesh.h>
+#include <Recast.h>
+#include <ChunkyTriMesh.h>
 
 class Sample_TileMesh : public Sample
 {

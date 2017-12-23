@@ -19,9 +19,9 @@
 #ifndef NAVMESHTESTERTOOL_H
 #define NAVMESHTESTERTOOL_H
 
-#include "Sample.h"
-#include "DetourNavMesh.h"
-#include "DetourNavMeshQuery.h"
+#include <Sample.h>
+#include <DetourNavMesh.h>
+#include <DetourNavMeshQuery.h>
 
 class NavMeshTesterTool : public SampleTool
 {

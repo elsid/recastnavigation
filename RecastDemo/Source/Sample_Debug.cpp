@@ -19,16 +19,16 @@
 #define _USE_MATH_DEFINES
 #include <math.h>
 #include <stdio.h>
-#include "Sample_Debug.h"
-#include "InputGeom.h"
-#include "Recast.h"
-#include "DetourNavMesh.h"
-#include "RecastDebugDraw.h"
-#include "DetourDebugDraw.h"
-#include "RecastDump.h"
-#include "imgui.h"
-#include "SDL.h"
-#include "SDL_opengl.h"
+#include <Sample_Debug.h>
+#include <InputGeom.h>
+#include <Recast.h>
+#include <DetourNavMesh.h>
+#include <RecastDebugDraw.h>
+#include <DetourDebugDraw.h>
+#include <RecastDump.h>
+#include <imgui.h>
+#include <SDL.h>
+#include <SDL_opengl.h>
 
 #ifdef WIN32
 #	define snprintf _snprintf

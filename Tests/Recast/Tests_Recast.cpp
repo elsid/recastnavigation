@@ -1,6 +1,6 @@
-#include "catch.hpp"
+#include <catch.hpp>
 
-#include "Recast.h"
+#include <Recast.h>
 
 TEST_CASE("rcSwap")
 {

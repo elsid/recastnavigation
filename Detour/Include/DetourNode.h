@@ -19,7 +19,7 @@
 #ifndef DETOURNODE_H
 #define DETOURNODE_H
 
-#include "DetourNavMesh.h"
+#include <DetourNavMesh.h>
 
 enum dtNodeFlags
 {

@@ -19,9 +19,9 @@
 #ifndef RECASTSAMPLEDEBUG_H
 #define RECASTSAMPLEDEBUG_H
 
-#include "Sample.h"
-#include "DetourNavMesh.h"
-#include "Recast.h"
+#include <Sample.h>
+#include <DetourNavMesh.h>
+#include <Recast.h>
 
 /// Sample used for random debugging.
 class Sample_Debug : public Sample

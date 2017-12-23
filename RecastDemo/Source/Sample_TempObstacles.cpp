@@ -22,32 +22,32 @@
 #include <string.h>
 #include <float.h>
 #include <new>
-#include "SDL.h"
-#include "SDL_opengl.h"
+#include <SDL.h>
+#include <SDL_opengl.h>
 #ifdef __APPLE__
 #	include <OpenGL/glu.h>
 #else
 #	include <GL/glu.h>
 #endif
-#include "imgui.h"
-#include "InputGeom.h"
-#include "Sample.h"
-#include "Sample_TempObstacles.h"
-#include "Recast.h"
-#include "RecastDebugDraw.h"
-#include "DetourAssert.h"
-#include "DetourNavMesh.h"
-#include "DetourNavMeshBuilder.h"
-#include "DetourDebugDraw.h"
-#include "DetourCommon.h"
-#include "DetourTileCache.h"
-#include "NavMeshTesterTool.h"
-#include "OffMeshConnectionTool.h"
-#include "ConvexVolumeTool.h"
-#include "CrowdTool.h"
-#include "RecastAlloc.h"
-#include "RecastAssert.h"
-#include "fastlz.h"
+#include <imgui.h>
+#include <InputGeom.h>
+#include <Sample.h>
+#include <Sample_TempObstacles.h>
+#include <Recast.h>
+#include <RecastDebugDraw.h>
+#include <DetourAssert.h>
+#include <DetourNavMesh.h>
+#include <DetourNavMeshBuilder.h>
+#include <DetourDebugDraw.h>
+#include <DetourCommon.h>
+#include <DetourTileCache.h>
+#include <NavMeshTesterTool.h>
+#include <OffMeshConnectionTool.h>
+#include <ConvexVolumeTool.h>
+#include <CrowdTool.h>
+#include <RecastAlloc.h>
+#include <RecastAssert.h>
+#include <fastlz.h>
 
 #ifdef WIN32
 #	define snprintf _snprintf

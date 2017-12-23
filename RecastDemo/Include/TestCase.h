@@ -20,7 +20,7 @@
 #define TESTCASE_H
 
 #include <string>
-#include "DetourNavMesh.h"
+#include <DetourNavMesh.h>
 
 class TestCase
 {

@@ -1,6 +1,6 @@
-#include "catch.hpp"
+#include <catch.hpp>
 
-#include "DetourCommon.h"
+#include <DetourCommon.h>
 
 TEST_CASE("dtRandomPointInConvexPoly")
 {

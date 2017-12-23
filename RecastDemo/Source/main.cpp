@@ -20,8 +20,8 @@
 #define _USE_MATH_DEFINES
 #include <cmath>
 
-#include "SDL.h"
-#include "SDL_opengl.h"
+#include <SDL.h>
+#include <SDL_opengl.h>
 #ifdef __APPLE__
 #	include <OpenGL/glu.h>
 #else
@@ -31,18 +31,18 @@
 #include <vector>
 #include <string>
 
-#include "imgui.h"
-#include "imguiRenderGL.h"
+#include <imgui.h>
+#include <imguiRenderGL.h>
 
-#include "Recast.h"
-#include "RecastDebugDraw.h"
-#include "InputGeom.h"
-#include "TestCase.h"
-#include "Filelist.h"
-#include "Sample_SoloMesh.h"
-#include "Sample_TileMesh.h"
-#include "Sample_TempObstacles.h"
-#include "Sample_Debug.h"
+#include <Recast.h>
+#include <RecastDebugDraw.h>
+#include <InputGeom.h>
+#include <TestCase.h>
+#include <Filelist.h>
+#include <Sample_SoloMesh.h>
+#include <Sample_TileMesh.h>
+#include <Sample_TempObstacles.h>
+#include <Sample_Debug.h>
 
 #ifdef WIN32
 #	define snprintf _snprintf

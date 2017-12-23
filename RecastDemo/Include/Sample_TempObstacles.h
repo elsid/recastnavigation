@@ -19,10 +19,10 @@
 #ifndef RECASTSAMPLETEMPOBSTACLE_H
 #define RECASTSAMPLETEMPOBSTACLE_H
 
-#include "Sample.h"
-#include "DetourNavMesh.h"
-#include "Recast.h"
-#include "ChunkyTriMesh.h"
+#include <Sample.h>
+#include <DetourNavMesh.h>
+#include <Recast.h>
+#include <ChunkyTriMesh.h>
 
 
 class Sample_TempObstacles : public Sample

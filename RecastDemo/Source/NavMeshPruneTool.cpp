@@ -22,16 +22,16 @@
 #include <string.h>
 #include <float.h>
 #include <vector>
-#include "SDL.h"
-#include "SDL_opengl.h"
-#include "imgui.h"
-#include "NavMeshPruneTool.h"
-#include "InputGeom.h"
-#include "Sample.h"
-#include "DetourNavMesh.h"
-#include "DetourCommon.h"
-#include "DetourAssert.h"
-#include "DetourDebugDraw.h"
+#include <SDL.h>
+#include <SDL_opengl.h>
+#include <imgui.h>
+#include <NavMeshPruneTool.h>
+#include <InputGeom.h>
+#include <Sample.h>
+#include <DetourNavMesh.h>
+#include <DetourCommon.h>
+#include <DetourAssert.h>
+#include <DetourDebugDraw.h>
 
 #ifdef WIN32
 #	define snprintf _snprintf

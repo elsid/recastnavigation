@@ -19,7 +19,7 @@
 #ifndef OFFMESHCONNECTIONTOOL_H
 #define OFFMESHCONNECTIONTOOL_H
 
-#include "Sample.h"
+#include <Sample.h>
 
 // Tool to create off-mesh connection for InputGeom
 

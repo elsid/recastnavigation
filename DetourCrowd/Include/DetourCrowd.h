@@ -19,12 +19,12 @@
 #ifndef DETOURCROWD_H
 #define DETOURCROWD_H
 
-#include "DetourNavMeshQuery.h"
-#include "DetourObstacleAvoidance.h"
-#include "DetourLocalBoundary.h"
-#include "DetourPathCorridor.h"
-#include "DetourProximityGrid.h"
-#include "DetourPathQueue.h"
+#include <DetourNavMeshQuery.h>
+#include <DetourObstacleAvoidance.h>
+#include <DetourLocalBoundary.h>
+#include <DetourPathCorridor.h>
+#include <DetourProximityGrid.h>
+#include <DetourPathQueue.h>
 
 /// The maximum number of neighbors that a crowd agent can take into account
 /// for steering decisions.

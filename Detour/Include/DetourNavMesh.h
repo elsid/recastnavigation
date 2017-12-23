@@ -19,8 +19,8 @@
 #ifndef DETOURNAVMESH_H
 #define DETOURNAVMESH_H
 
-#include "DetourAlloc.h"
-#include "DetourStatus.h"
+#include <DetourAlloc.h>
+#include <DetourStatus.h>
 
 // Undefine (or define in a build cofnig) the following line to use 64bit polyref.
 // Generally not needed, useful for very large worlds.

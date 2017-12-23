@@ -19,7 +19,7 @@
 #ifndef NAVMESHPRUNETOOL_H
 #define NAVMESHPRUNETOOL_H
 
-#include "Sample.h"
+#include <Sample.h>
 
 // Prune navmesh to accessible locations from a point.
 

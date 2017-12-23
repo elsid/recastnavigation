@@ -19,8 +19,8 @@
 #ifndef RECASTSAMPLE_H
 #define RECASTSAMPLE_H
 
-#include "Recast.h"
-#include "SampleInterfaces.h"
+#include <Recast.h>
+#include <SampleInterfaces.h>
 
 
 /// Tool types.

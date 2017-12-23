@@ -19,9 +19,9 @@
 #ifndef DETOURDEBUGDRAW_H
 #define DETOURDEBUGDRAW_H
 
-#include "DetourNavMesh.h"
-#include "DetourNavMeshQuery.h"
-#include "DetourTileCacheBuilder.h"
+#include <DetourNavMesh.h>
+#include <DetourNavMeshQuery.h>
+#include <DetourTileCacheBuilder.h>
 
 enum DrawNavMeshFlags
 {

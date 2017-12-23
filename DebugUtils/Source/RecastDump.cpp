@@ -21,9 +21,9 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
-#include "Recast.h"
-#include "RecastAlloc.h"
-#include "RecastDump.h"
+#include <Recast.h>
+#include <RecastAlloc.h>
+#include <RecastDump.h>
 
 
 duFileIO::~duFileIO()
