@@ -463,7 +463,7 @@ int main(int /*argc*/, char** /*argv*/)
 		moveUp		= rcClamp(moveUp	+ dt * 4 * ((keystate[SDL_SCANCODE_Q] || keystate[SDL_SCANCODE_PAGEUP	]) ? 1 : -1), 0.0f, 1.0f);
 		moveDown	= rcClamp(moveDown	+ dt * 4 * ((keystate[SDL_SCANCODE_E] || keystate[SDL_SCANCODE_PAGEDOWN	]) ? 1 : -1), 0.0f, 1.0f);
 		
-		float keybSpeed = 22.0f;
+		float keybSpeed = 50.0f;
 		if (SDL_GetModState() & KMOD_SHIFT)
 		{
 			keybSpeed *= 4.0f;

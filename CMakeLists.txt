@@ -11,6 +11,8 @@ option(RECASTNAVIGATION_TESTS "Build tests" ON)
 option(RECASTNAVIGATION_EXAMPLES "Build examples" ON)
 option(RECASTNAVIGATION_STATIC "Build static libraries" OFF)
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+
 add_subdirectory(DebugUtils)
 add_subdirectory(Detour)
 add_subdirectory(DetourCrowd)
