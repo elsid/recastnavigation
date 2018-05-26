@@ -1,5 +1,6 @@
 file(GLOB SOURCES Source/*.cpp Contrib/fastlz/fastlz.c)
 
+include(cmake/LibFindMacros.cmake)
 include(cmake/FindSDL2.cmake)
 
 find_package(OpenGL REQUIRED)
