@@ -1,13 +1,14 @@
 file(GLOB SOURCES Source/*.cpp Contrib/fastlz/fastlz.c)
 
 include(cmake/LibFindMacros.cmake)
-include(cmake/FindSDL2.cmake)
+
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
 find_package(OpenGL REQUIRED)
 find_package(SDL2 REQUIRED)
 
 include_directories(SYSTEM ${OPENGL_INCLUDE_DIR})
-include_directories(SYSTEM ${SDL2_INCLUDE_DIRS})
+include_directories(SYSTEM ${SDL2_INCLUDE_DIR})
 include_directories(SYSTEM Contrib/fastlz)
 include_directories(SYSTEM Contrib)
 include_directories(../DebugUtils/Include)

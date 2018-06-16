@@ -5,8 +5,8 @@ os:
 
 environment:
   matrix:
-  - TOOLSET: vs2010
-  - TOOLSET: vs2013
+  # - TOOLSET: vs2010
+  # - TOOLSET: vs2013
   - TOOLSET: vs2015
 
 install:
@@ -21,9 +21,11 @@ install:
   
   # Extract it, put it in the right place, and rename it.
   - cd RecastDemo\Contrib && 7z x SDL.zip && ren SDL2-2.0.4 SDL && cd ..\..
-  
+
   # Generate solution files using premake.
   - cd RecastDemo && "../premake5.exe" %TOOLSET% && cd ..
+
+  - mkdir build && cd build && cmake -G "Visual Studio 14 2015 Win64" -D RECASTNAVIGATION_STATIC=ON -D SDL_DIR=../RecastDemo/Contrib/SDL ..
 
 configuration:
   - Debug
@@ -32,5 +34,10 @@ configuration:
 build:
   project: RecastDemo/Build/$(TOOLSET)/recastnavigation.sln
 
+build_script:
+  - cmake --build build -- /m:%NUMBER_OF_PROCESSORS%
+
 after_test:
   - RecastDemo\Bin\Tests.exe
+  - set PATH=%PATH%;C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\bin
+  - dumpbin /DEPENDS RecastDemo\Bin\RecastDemo.exe

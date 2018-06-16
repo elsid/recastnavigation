@@ -24,6 +24,8 @@ install:
   - wget https://www.libsdl.org/release/SDL2-2.0.4.tar.gz -O SDL2.tar.gz
   - tar -xzf SDL2.tar.gz
   - cd SDL2-2.0.4
+  - mkdir build
+  - cd build
   - ./configure --prefix=$PREFIX
   - make -j$(nproc)
   - make install
@@ -40,7 +42,10 @@ install:
 # Have to cd into directory and back out since premake5 doesn't appear to accept a directory argument.
 before_script:
   - cd RecastDemo && ../premake5 gmake && cd ..
-  - mkdir build && cd build && cmake -DRECASTNAVIGATION_STATIC=TRUE -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} .. && cd ..
+  - mkdir build
+  - cd build
+  - cmake -D RECASTNAVIGATION_STATIC=ON -D CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -D SDL_DIR=../dummyprefix ..
+  - cd ..
 
 # Run make in the directory containing generated makefiles, on the configuration specified by the environment variable.
 script:
