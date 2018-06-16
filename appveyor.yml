@@ -6,8 +6,11 @@ os:
 environment:
   matrix:
   - TOOLSET: vs2010
+    GENERATOR: Visual Studio 10 2010 Win64
   - TOOLSET: vs2013
+    GENERATOR: Visual Studio 12 2013 Win64
   - TOOLSET: vs2015
+    GENERATOR: Visual Studio 14 2015 Win64
 
 install:
   # Download Premake
@@ -18,10 +21,10 @@ install:
 
   # Download SDL.
   - ps: Start-FileDownload 'https://www.libsdl.org/release/SDL2-devel-2.0.4-VC.zip' 'RecastDemo/Contrib/SDL.zip'
-  
+
   # Extract it, put it in the right place, and rename it.
   - cd RecastDemo\Contrib && 7z x SDL.zip && ren SDL2-2.0.4 SDL && cd ..\..
-  
+
   # Generate solution files using premake.
   - cd RecastDemo && "../premake5.exe" %TOOLSET% && cd ..
 
@@ -31,6 +34,14 @@ configuration:
 
 build:
   project: RecastDemo/Build/$(TOOLSET)/recastnavigation.sln
+
+after_build:
+  - mkdir build
+  - cd build
+  - cmake -G "%GENERATOR%" -D RECASTNAVIGATION_STATIC=ON -D SDL2_ROOT_DIR="%cd%\..\RecastDemo\Contrib\SDL" ..
+  - cmake --build . -- /m:%NUMBER_OF_PROCESSORS%
+  - ctest -V
+  - cd ..
 
 after_test:
   - RecastDemo\Bin\Tests.exe
