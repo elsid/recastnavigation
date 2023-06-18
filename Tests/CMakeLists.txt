@@ -1,9 +1,10 @@
-file(GLOB TESTS_SOURCES Detour/*.cpp Recast/*.cpp)
-
 include_directories(../Detour/Include)
 include_directories(../Recast/Include)
 
-add_executable(Tests ${TESTS_SOURCES})
+add_executable(Tests
+	Detour/Tests_Detour.cpp
+	Recast/Tests_Recast.cpp
+)
 
 set_property(TARGET Tests PROPERTY CXX_STANDARD 17)
 
