@@ -21,6 +21,8 @@
 #include "RecastAlloc.h"
 #include "RecastAssert.h"
 
+#include <cstdio>
+
 /// Check whether two bounding boxes overlap
 ///
 /// @param[in]	aMin	Min axis extents of bounding box A
@@ -211,6 +213,45 @@ enum rcAxis
 	RC_AXIS_Z = 2
 };
 
+namespace
+{
+
+template <class T>
+struct Span
+{
+    T* values;
+    int count;
+
+    explicit Span(T* values, int count)
+        : values(values), count(count)
+    {
+        if (count < 0)
+        {
+            std::printf("count=%d\n", count);
+            std::abort();
+        }
+    }
+
+    explicit Span(T* begin, const T* end) : Span(begin, end - begin) {}
+
+    T& operator[](int index) const
+    {
+        if (index < 0)
+        {
+            std::printf("index=%d\n", index);
+            std::abort();
+        }
+        if (index >= count)
+        {
+            std::printf("index=%d count=%d\n", index, count);
+            std::abort();
+        }
+        return values[index];
+    }
+};
+
+}
+
 /// Divides a convex polygon of max 12 vertices into two convex polygons
 /// across a separating axis.
 /// 
@@ -222,12 +263,16 @@ enum rcAxis
 /// @param[out]	outVerts2Count	The number of resulting polygon 2 vertices
 /// @param[in]	axisOffset		THe offset along the specified axis
 /// @param[in]	axis			The separating axis
-static void dividePoly(const float* inVerts, int inVertsCount,
-                       float* outVerts1, int* outVerts1Count,
-                       float* outVerts2, int* outVerts2Count,
-                       float axisOffset, rcAxis axis)
+static void dividePoly(const float* inVertsPtr, int inVertsCount,
+                       float* outVerts1Ptr, int* outVerts1Count,
+                       float* outVerts2Ptr, int* outVerts2Count,
+                       float axisOffset, rcAxis axis, const float* outEnd)
 {
 	rcAssert(inVertsCount <= 12);
+
+    const Span inVerts(inVertsPtr, 3 * inVertsCount);
+    const Span outVerts1(outVerts1Ptr, outEnd);
+    const Span outVerts2(outVerts2Ptr, outEnd);
 	
 	// How far positive or negative away from the separating axis is each vertex.
 	float inVertAxisDelta[12];
@@ -339,9 +384,11 @@ static bool rasterizeTri(const float* v0, const float* v1, const float* v2,
 	z1 = rcClamp(z1, 0, h - 1);
 
 	// Clip the triangle into all grid cells it touches.
-	float buf[7 * 3 * 4];
+    const int bufSize = 7 * 3 * 4;
+	float buf[bufSize];
 	float* in = buf;
 	float* inRow = buf + 7 * 3;
+    const float* const bufEnd = buf + bufSize;
 	float* p1 = inRow + 7 * 3;
 	float* p2 = p1 + 7 * 3;
 
@@ -355,7 +402,7 @@ static bool rasterizeTri(const float* v0, const float* v1, const float* v2,
 	{
 		// Clip polygon to row. Store the remaining polygon as well
 		const float cellZ = heightfieldBBMin[2] + (float)z * cellSize;
-		dividePoly(in, nvIn, inRow, &nvRow, p1, &nvIn, cellZ + cellSize, RC_AXIS_Z);
+		dividePoly(in, nvIn, inRow, &nvRow, p1, &nvIn, cellZ + cellSize, RC_AXIS_Z, bufEnd);
 		rcSwap(in, p1);
 		
 		if (nvRow < 3)
@@ -397,7 +444,7 @@ static bool rasterizeTri(const float* v0, const float* v1, const float* v2,
 		{
 			// Clip polygon to column. store the remaining polygon as well
 			const float cx = heightfieldBBMin[0] + (float)x * cellSize;
-			dividePoly(inRow, nv2, p1, &nv, p2, &nv2, cx + cellSize, RC_AXIS_X);
+			dividePoly(inRow, nv2, p1, &nv, p2, &nv2, cx + cellSize, RC_AXIS_X, bufEnd);
 			rcSwap(inRow, p2);
 			
 			if (nv < 3)
