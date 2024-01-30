@@ -935,3 +935,35 @@ TEST_CASE("rcRasterizeTriangles", "[recast]")
 		REQUIRE(!solid.spans[1 + 2 * width]->next);
 	}
 }
+
+TEST_CASE("rcRasterizeTriangles", "[corner cases]")
+{
+	SECTION("stack smashing")
+	{
+		rcContext ctx;
+		const float verts[] = {
+			7228336.5f, -3.7455883f, 7228336.5f,
+			7228336.5f, -3.7455883f, 7228368.0f,
+			7228368.0f, -3.7455883f, 7228368.0f,
+			7228368.0f, -3.7455883f, 7228336.5f
+		};
+		const int numVerts = 4;
+		const int tris[] = {
+			0, 1, 2,
+			0, 2, 3
+		};
+		const unsigned char triAreaIDs[] = {1, 2};
+		const int numTris = 2;
+		const float bmin[3] = {7228336.0f, -60.2352943f, 7228336.0f};
+		const float bmax[3] = {7228368.0f, 0.0f, 7228368.0f};
+		const float cellSize = 0.200000003f;
+		const float cellHeight = 0.200000003f;
+		const int width = 160;
+		const int height = 160;
+		rcHeightfield solid;
+		REQUIRE(rcCreateHeightfield(&ctx, solid, width, height, bmin, bmax, cellSize, cellHeight));
+
+		const int flagMergeThreshold = 1;
+		REQUIRE(rcRasterizeTriangles(&ctx, verts, numVerts, tris, triAreaIDs, numTris, solid, flagMergeThreshold));
+	}
+}
