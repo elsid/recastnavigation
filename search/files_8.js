@@ -1,24 +1,5 @@
 var searchData=
 [
-  ['readme_2emd_2050',['README.md',['../README_8md.html',1,'']]],
-  ['recast_2ecpp_2051',['Recast.cpp',['../Recast_8cpp.html',1,'']]],
-  ['recast_2eh_2052',['Recast.h',['../Recast_8h.html',1,'']]],
-  ['recast_5fapi_2etxt_2053',['Recast_api.txt',['../Recast__api_8txt.html',1,'']]],
-  ['recastalloc_2ecpp_2054',['RecastAlloc.cpp',['../RecastAlloc_8cpp.html',1,'']]],
-  ['recastalloc_2eh_2055',['RecastAlloc.h',['../RecastAlloc_8h.html',1,'']]],
-  ['recastarea_2ecpp_2056',['RecastArea.cpp',['../RecastArea_8cpp.html',1,'']]],
-  ['recastassert_2ecpp_2057',['RecastAssert.cpp',['../RecastAssert_8cpp.html',1,'']]],
-  ['recastassert_2eh_2058',['RecastAssert.h',['../RecastAssert_8h.html',1,'']]],
-  ['recastcontour_2ecpp_2059',['RecastContour.cpp',['../RecastContour_8cpp.html',1,'']]],
-  ['recastdebugdraw_2ecpp_2060',['RecastDebugDraw.cpp',['../RecastDebugDraw_8cpp.html',1,'']]],
-  ['recastdebugdraw_2eh_2061',['RecastDebugDraw.h',['../RecastDebugDraw_8h.html',1,'']]],
-  ['recastdump_2ecpp_2062',['RecastDump.cpp',['../RecastDump_8cpp.html',1,'']]],
-  ['recastdump_2eh_2063',['RecastDump.h',['../RecastDump_8h.html',1,'']]],
-  ['recastfilter_2ecpp_2064',['RecastFilter.cpp',['../RecastFilter_8cpp.html',1,'']]],
-  ['recastlayers_2ecpp_2065',['RecastLayers.cpp',['../RecastLayers_8cpp.html',1,'']]],
-  ['recastmesh_2ecpp_2066',['RecastMesh.cpp',['../RecastMesh_8cpp.html',1,'']]],
-  ['recastmeshdetail_2ecpp_2067',['RecastMeshDetail.cpp',['../RecastMeshDetail_8cpp.html',1,'']]],
-  ['recastrasterization_2ecpp_2068',['RecastRasterization.cpp',['../RecastRasterization_8cpp.html',1,'']]],
-  ['recastregion_2ecpp_2069',['RecastRegion.cpp',['../RecastRegion_8cpp.html',1,'']]],
-  ['roadmap_2emd_2070',['Roadmap.md',['../Roadmap_8md.html',1,'']]]
+  ['perftimer_2ecpp_0',['PerfTimer.cpp',['../PerfTimer_8cpp.html',1,'']]],
+  ['perftimer_2eh_1',['PerfTimer.h',['../PerfTimer_8h.html',1,'']]]
 ];
