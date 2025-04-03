@@ -1,14 +1,17 @@
-file(GLOB TESTS_SOURCES Detour/*.cpp Recast/*.cpp)
-
-include_directories(../Detour/Include)
-include_directories(../Recast/Include)
-
-add_executable(Tests ${TESTS_SOURCES})
+add_executable(Tests
+	Detour/Tests_Detour.cpp
+	Recast/Tests_Recast.cpp
+	Integration/Issue729.cpp
+)
 
 set_property(TARGET Tests PROPERTY CXX_STANDARD 17)
+set_property(TARGET Tests PROPERTY CXX_STANDARD_REQUIRED ON)
+set_property(TARGET Tests PROPERTY CXX_EXTENSIONS OFF)
 
-add_dependencies(Tests Recast Detour)
-target_link_libraries(Tests Recast Detour)
+target_compile_definitions(Tests PRIVATE
+	RECASTNAVIGATION_TESTS_INTEGRATION_MESHES=u8"${PROJECT_SOURCE_DIR}/RecastDemo/Bin/Meshes")
+
+target_link_libraries(Tests Recast Detour DebugUtils)
 
 find_package(Catch2 QUIET)
 if (Catch2_FOUND)
