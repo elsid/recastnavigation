@@ -12,7 +12,7 @@ endif()
 
 find_package(OpenGL REQUIRED)
 if(APPLE)
-  find_library(SDL2_LIBRARY 
+  find_library(SDL2_LIBRARY
     NAMES SDL2
     PATHS ${SDL2_ROOT_DIR}
     REQUIRED)
