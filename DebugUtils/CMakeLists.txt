@@ -1,5 +1,10 @@
-file(GLOB SOURCES Source/*.cpp)
-add_library(DebugUtils ${SOURCES})
+add_library(DebugUtils
+    Source/DebugDraw.cpp
+    Source/DetourDebugDraw.cpp
+    Source/MeshLoaderObj.cpp
+    Source/RecastDebugDraw.cpp
+    Source/RecastDump.cpp
+)
 
 add_library(RecastNavigation::DebugUtils ALIAS DebugUtils)
 set_target_properties(DebugUtils PROPERTIES DEBUG_POSTFIX -d)
@@ -31,7 +36,13 @@ install(TARGETS DebugUtils
         INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR} ${CMAKE_INSTALL_INCLUDEDIR}/recastnavigation
         )
 
-file(GLOB INCLUDES Include/*.h)
+set(INCLUDES
+    Include/DebugDraw.h
+    Include/DetourDebugDraw.h
+    Include/MeshLoaderObj.h
+    Include/RecastDebugDraw.h
+    Include/RecastDump.h
+)
 install(FILES ${INCLUDES} DESTINATION
     ${CMAKE_INSTALL_INCLUDEDIR}/recastnavigation)
 if(MSVC)
