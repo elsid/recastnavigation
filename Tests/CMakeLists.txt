@@ -1,6 +1,3 @@
-include_directories(../Detour/Include)
-include_directories(../Recast/Include)
-
 add_executable(Tests
 	Detour/Tests_Detour.cpp
 	Recast/Bench_rcVector.cpp
@@ -8,12 +5,14 @@ add_executable(Tests
 	Recast/Tests_Recast.cpp
 	Recast/Tests_RecastFilter.cpp
 	DetourCrowd/Tests_DetourPathCorridor.cpp
+	Integration/Issue729.cpp
 )
 
 set_property(TARGET Tests PROPERTY CXX_STANDARD 17)
 
-add_dependencies(Tests Recast Detour DetourCrowd)
-target_link_libraries(Tests Recast Detour DetourCrowd)
+target_link_libraries(Tests Recast Detour DetourCrowd DebugUtils)
+target_compile_definitions(Tests PRIVATE
+	RECASTNAVIGATION_TESTS_INTEGRATION_MESHES=u8"${CMAKE_CURRENT_SOURCE_DIR}/Integration/Meshes")
 
 find_package(Catch2 QUIET)
 if (Catch2_FOUND)
