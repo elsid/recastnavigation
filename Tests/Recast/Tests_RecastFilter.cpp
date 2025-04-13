@@ -7,6 +7,212 @@
 #include "Recast.h"
 #include "RecastAlloc.h"
 
+namespace
+{
+	void freeHeightfieldSpans(const rcHeightfield& heightfield)
+	{
+		for (int z = 0; z < heightfield.height; ++z)
+		{
+			for (int x = 0; x < heightfield.width; ++x)
+			{
+				rcSpan* span = heightfield.spans[x + z * heightfield.width];
+				while (span)
+				{
+					rcSpan* const prev = span;
+					span = span->next;
+					rcFree(prev);
+				}
+			}
+		}
+	}
+
+	std::vector<unsigned> getAreas(const rcSpan* span)
+	{
+		std::vector<unsigned> result;
+		for (const rcSpan* v = span; v != NULL; v = v->next)
+			result.push_back(v->area);
+		return result;
+	}
+
+	void generateHeightfield(rcHeightfield& heightfield)
+	{
+		heightfield.width = 5;
+		heightfield.height = 5;
+		heightfield.spans = (rcSpan**)rcAlloc(heightfield.width * heightfield.height * sizeof(rcSpan*), RC_ALLOC_PERM);
+
+		for (int z = 0; z < heightfield.height; ++z)
+			for (int x = 0; x < heightfield.height; ++x)
+				heightfield.spans[x + z * heightfield.width] = NULL;
+
+		{
+			rcTempVector<rcSpan*> spans;
+			{
+				rcSpan* span = (rcSpan*)rcAlloc(sizeof(rcSpan), RC_ALLOC_PERM);
+				span->area = 1;
+				span->smin = 36;
+				span->smax = 40;
+				span->next = NULL;
+				spans.push_back(span);
+			}
+			{
+				rcSpan* span = (rcSpan*)rcAlloc(sizeof(rcSpan), RC_ALLOC_PERM);
+				span->area = 1;
+				span->smin = 41;
+				span->smax = 42;
+				span->next = NULL;
+				spans.push_back(span);
+			}
+			{
+				rcSpan* span = (rcSpan*)rcAlloc(sizeof(rcSpan), RC_ALLOC_PERM);
+				span->area = 1;
+				span->smin = 64;
+				span->smax = 71;
+				span->next = NULL;
+				spans.push_back(span);
+			}
+			for (rcSizeType i = 1; i < spans.size(); ++i)
+				spans[i - 1]->next = spans[i];
+			heightfield.spans[1 + 2 * 5] = spans[0];
+		}
+		{
+			rcTempVector<rcSpan*> spans;
+			{
+				rcSpan* span = (rcSpan*)rcAlloc(sizeof(rcSpan), RC_ALLOC_PERM);
+				span->area = 1;
+				span->smin = 36;
+				span->smax = 37;
+				span->next = NULL;
+				spans.push_back(span);
+			}
+			{
+				rcSpan* span = (rcSpan*)rcAlloc(sizeof(rcSpan), RC_ALLOC_PERM);
+				span->area = 1;
+				span->smin = 39;
+				span->smax = 42;
+				span->next = NULL;
+				spans.push_back(span);
+			}
+			{
+				rcSpan* span = (rcSpan*)rcAlloc(sizeof(rcSpan), RC_ALLOC_PERM);
+				span->area = 1;
+				span->smin = 69;
+				span->smax = 70;
+				span->next = NULL;
+				spans.push_back(span);
+			}
+			for (rcSizeType i = 1; i < spans.size(); ++i)
+				spans[i - 1]->next = spans[i];
+			heightfield.spans[2 + 1 * 5] = spans[0];
+		}
+		{
+			rcTempVector<rcSpan*> spans;
+			{
+				rcSpan* span = (rcSpan*)rcAlloc(sizeof(rcSpan), RC_ALLOC_PERM);
+				span->area = 1;
+				span->smin = 36;
+				span->smax = 37;
+				span->next = NULL;
+				spans.push_back(span);
+			}
+			{
+				rcSpan* span = (rcSpan*)rcAlloc(sizeof(rcSpan), RC_ALLOC_PERM);
+				span->area = 1;
+				span->smin = 38;
+				span->smax = 42;
+				span->next = NULL;
+				spans.push_back(span);
+			}
+			{
+				rcSpan* span = (rcSpan*)rcAlloc(sizeof(rcSpan), RC_ALLOC_PERM);
+				span->area = 1;
+				span->smin = 65;
+				span->smax = 72;
+				span->next = NULL;
+				spans.push_back(span);
+			}
+			for (rcSizeType i = 1; i < spans.size(); ++i)
+				spans[i - 1]->next = spans[i];
+			heightfield.spans[2 + 2 * 5] = spans[0];
+		}
+		{
+			rcTempVector<rcSpan*> spans;
+			{
+				rcSpan* span = (rcSpan*)rcAlloc(sizeof(rcSpan), RC_ALLOC_PERM);
+				span->area = 1;
+				span->smin = 36;
+				span->smax = 37;
+				span->next = NULL;
+				spans.push_back(span);
+			}
+			{
+				rcSpan* span = (rcSpan*)rcAlloc(sizeof(rcSpan), RC_ALLOC_PERM);
+				span->area = 1;
+				span->smin = 38;
+				span->smax = 42;
+				span->next = NULL;
+				spans.push_back(span);
+			}
+			{
+				rcSpan* span = (rcSpan*)rcAlloc(sizeof(rcSpan), RC_ALLOC_PERM);
+				span->area = 1;
+				span->smin = 43;
+				span->smax = 45;
+				span->next = NULL;
+				spans.push_back(span);
+			}
+			{
+				rcSpan* span = (rcSpan*)rcAlloc(sizeof(rcSpan), RC_ALLOC_PERM);
+				span->area = 1;
+				span->smin = 65;
+				span->smax = 67;
+				span->next = NULL;
+				spans.push_back(span);
+			}
+			{
+				rcSpan* span = (rcSpan*)rcAlloc(sizeof(rcSpan), RC_ALLOC_PERM);
+				span->area = 1;
+				span->smin = 69;
+				span->smax = 72;
+				span->next = NULL;
+				spans.push_back(span);
+			}
+			for (rcSizeType i = 1; i < spans.size(); ++i)
+				spans[i - 1]->next = spans[i];
+			heightfield.spans[2 + 3 * 5] = spans[0];
+		}
+		{
+			rcTempVector<rcSpan*> spans;
+			{
+				rcSpan* span = (rcSpan*)rcAlloc(sizeof(rcSpan), RC_ALLOC_PERM);
+				span->area = 1;
+				span->smin = 25;
+				span->smax = 34;
+				span->next = NULL;
+				spans.push_back(span);
+			}
+			{
+				rcSpan* span = (rcSpan*)rcAlloc(sizeof(rcSpan), RC_ALLOC_PERM);
+				span->area = 1;
+				span->smin = 36;
+				span->smax = 38;
+				span->next = NULL;
+				spans.push_back(span);
+			}
+			{
+				rcSpan* span = (rcSpan*)rcAlloc(sizeof(rcSpan), RC_ALLOC_PERM);
+				span->area = 1;
+				span->smin = 66;
+				span->smax = 73;
+				span->next = NULL;
+				spans.push_back(span);
+			}
+			for (rcSizeType i = 1; i < spans.size(); ++i)
+				spans[i - 1]->next = spans[i];
+			heightfield.spans[3 + 2 * 5] = spans[0];
+		}
+	}
+}
+
 TEST_CASE("rcFilterLowHangingWalkableObstacles", "[recast, filtering]")
 {
 	rcContext context;
@@ -183,27 +389,27 @@ TEST_CASE("rcFilterLowHangingWalkableObstacles", "[recast, filtering]")
 
 TEST_CASE("rcFilterLedgeSpans", "[recast, filtering]")
 {
-	rcContext context;
-	int walkableClimb = 5;
-	int walkableHeight = 10;
-
-	rcHeightfield heightfield;
-	heightfield.width = 10;
-	heightfield.height = 10;
-	heightfield.bmin[0] = 0;
-	heightfield.bmin[1] = 0;
-	heightfield.bmin[2] = 0;
-	heightfield.bmax[0] = 10;
-	heightfield.bmax[1] = 1;
-	heightfield.bmax[2] = 10;
-	heightfield.cs = 1;
-	heightfield.ch = 1;
-	heightfield.spans = (rcSpan**)rcAlloc(heightfield.width * heightfield.height * sizeof(rcSpan*), RC_ALLOC_PERM);
-	heightfield.pools = NULL;
-	heightfield.freelist = NULL;
-
 	SECTION("Edge spans are marked unwalkable")
 	{
+		rcContext context;
+		const int walkableClimb = 5;
+		const int walkableHeight = 10;
+
+		rcHeightfield heightfield;
+		heightfield.width = 10;
+		heightfield.height = 10;
+		heightfield.bmin[0] = 0;
+		heightfield.bmin[1] = 0;
+		heightfield.bmin[2] = 0;
+		heightfield.bmax[0] = 10;
+		heightfield.bmax[1] = 1;
+		heightfield.bmax[2] = 10;
+		heightfield.cs = 1;
+		heightfield.ch = 1;
+		heightfield.spans = (rcSpan**)rcAlloc(heightfield.width * heightfield.height * sizeof(rcSpan*), RC_ALLOC_PERM);
+		heightfield.pools = NULL;
+		heightfield.freelist = NULL;
+
 		// Create a flat plane.
 		for (int x = 0; x < heightfield.width; ++x)
 		{
@@ -243,13 +449,359 @@ TEST_CASE("rcFilterLedgeSpans", "[recast, filtering]")
 		}
 
 		// Free all the heightfield spans
-		for (int x = 0; x < heightfield.width; ++x)
+		freeHeightfieldSpans(heightfield);
+	}
+
+	SECTION("Should skip unwalkable")
+	{
+		rcContext context;
+		const int walkableClimb = 1;
+		const int walkableHeight = 1;
+
+		rcHeightfield heightfield;
+		heightfield.width = 1;
+		heightfield.height = 1;
+		heightfield.spans = (rcSpan**)rcAlloc(heightfield.width * heightfield.height * sizeof(rcSpan*), RC_ALLOC_PERM);
+
+		rcSpan* span = (rcSpan*)rcAlloc(sizeof(rcSpan), RC_ALLOC_PERM);
+		span->area = RC_NULL_AREA;
+		span->smin = 0;
+		span->smax = 0;
+		span->next = NULL;
+		heightfield.spans[0] = span;
+
+		rcFilterLedgeSpans(&context, walkableHeight, walkableClimb, heightfield);
+
+		CHECK(heightfield.spans[0]->area == 0);
+
+		freeHeightfieldSpans(heightfield);
+	}
+
+	SECTION("Too elevated span is marked unwalkable")
+	{
+		rcContext context;
+		const int walkableClimb = 5;
+		const int walkableHeight = 10;
+
+		rcHeightfield heightfield;
+		heightfield.width = 5;
+		heightfield.height = 5;
+		heightfield.spans = (rcSpan**)rcAlloc(heightfield.width * heightfield.height * sizeof(rcSpan*), RC_ALLOC_PERM);
+
+		for (int z = 0; z < heightfield.height; ++z)
 		{
-			for (int z = 0; z < heightfield.height; ++z)
+			for (int x = 0; x < heightfield.width; ++x)
 			{
-				rcFree(heightfield.spans[x + z * heightfield.width]);
+				rcSpan* span = (rcSpan*)rcAlloc(sizeof(rcSpan), RC_ALLOC_PERM);
+				span->area = 1;
+				span->smin = 0;
+				span->smax = 1;
+				span->next = NULL;
+				heightfield.spans[x + z * heightfield.width] = span;
 			}
 		}
+
+		heightfield.spans[2 + 2 * heightfield.width]->smax = walkableClimb + 2;
+
+		rcFilterLedgeSpans(&context, walkableHeight, walkableClimb, heightfield);
+
+		CHECK(heightfield.spans[1 + 1 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[1 + 2 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[1 + 3 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[2 + 1 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[2 + 2 * heightfield.width]->area == 0);
+		CHECK(heightfield.spans[2 + 3 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[3 + 1 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[3 + 2 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[3 + 3 * heightfield.width]->area == 1);
+
+		freeHeightfieldSpans(heightfield);
+	}
+
+	SECTION("Too lowered span makes neighbours unwalkable")
+	{
+		rcContext context;
+		const int walkableClimb = 5;
+		const int walkableHeight = 10;
+
+		rcHeightfield heightfield;
+		heightfield.width = 5;
+		heightfield.height = 5;
+		heightfield.spans = (rcSpan**)rcAlloc(heightfield.width * heightfield.height * sizeof(rcSpan*), RC_ALLOC_PERM);
+
+		for (int z = 0; z < heightfield.height; ++z)
+		{
+			for (int x = 0; x < heightfield.width; ++x)
+			{
+				rcSpan* span = (rcSpan*)rcAlloc(sizeof(rcSpan), RC_ALLOC_PERM);
+				span->area = 1;
+				span->smin = 0;
+				span->smax = walkableClimb + 2;
+				span->next = NULL;
+				heightfield.spans[x + z * heightfield.width] = span;
+			}
+		}
+
+		heightfield.spans[2 + 2 * heightfield.width]->smax = 1;
+
+		rcFilterLedgeSpans(&context, walkableHeight, walkableClimb, heightfield);
+
+		CHECK(heightfield.spans[1 + 1 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[1 + 2 * heightfield.width]->area == 0);
+		CHECK(heightfield.spans[1 + 3 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[2 + 1 * heightfield.width]->area == 0);
+		CHECK(heightfield.spans[2 + 2 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[2 + 3 * heightfield.width]->area == 0);
+		CHECK(heightfield.spans[3 + 1 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[3 + 2 * heightfield.width]->area == 0);
+		CHECK(heightfield.spans[3 + 3 * heightfield.width]->area == 1);
+
+		freeHeightfieldSpans(heightfield);
+	}
+
+	SECTION("Neighbour span at different depth keep layer walkable")
+	{
+		rcContext context;
+		const int walkableClimb = 5;
+		const int walkableHeight = 10;
+
+		rcHeightfield heightfield;
+		heightfield.width = 5;
+		heightfield.height = 5;
+		heightfield.spans = (rcSpan**)rcAlloc(heightfield.width * heightfield.height * sizeof(rcSpan*), RC_ALLOC_PERM);
+
+		for (int z = 0; z < heightfield.height; ++z)
+		{
+			for (int x = 0; x < heightfield.width; ++x)
+			{
+				if (z == 2 && x == 2)
+					continue;
+
+				rcSpan* bottomSpan = (rcSpan*)rcAlloc(sizeof(rcSpan), RC_ALLOC_PERM);
+				bottomSpan->area = 1;
+				bottomSpan->smin = 0;
+				bottomSpan->smax = 1;
+
+				rcSpan* topSpan = (rcSpan*)rcAlloc(sizeof(rcSpan), RC_ALLOC_PERM);
+				topSpan->area = 1;
+				topSpan->smin = 1 + walkableHeight;
+				topSpan->smax = 1 + walkableHeight + 1;
+				topSpan->next = NULL;
+
+				bottomSpan->next = topSpan;
+
+				heightfield.spans[x + z * heightfield.width] = bottomSpan;
+			}
+		}
+
+		{
+			rcSpan* span = (rcSpan*)rcAlloc(sizeof(rcSpan), RC_ALLOC_PERM);
+			span->area = 1;
+			span->smin = 0;
+			span->smax = 1 + walkableHeight;
+			span->next = NULL;
+
+			heightfield.spans[2 + 2 * heightfield.width] = span;
+		}
+
+		rcFilterLedgeSpans(&context, walkableHeight, walkableClimb, heightfield);
+
+		CHECK(heightfield.spans[1 + 1 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[1 + 2 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[1 + 3 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[2 + 1 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[2 + 2 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[2 + 3 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[3 + 1 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[3 + 2 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[3 + 3 * heightfield.width]->area == 1);
+
+		CHECK(heightfield.spans[1 + 1 * heightfield.width]->next->area == 1);
+		CHECK(heightfield.spans[1 + 2 * heightfield.width]->next->area == 1);
+		CHECK(heightfield.spans[1 + 3 * heightfield.width]->next->area == 1);
+		CHECK(heightfield.spans[2 + 1 * heightfield.width]->next->area == 1);
+
+		CHECK(heightfield.spans[2 + 3 * heightfield.width]->next->area == 1);
+		CHECK(heightfield.spans[3 + 1 * heightfield.width]->next->area == 1);
+		CHECK(heightfield.spans[3 + 2 * heightfield.width]->next->area == 1);
+		CHECK(heightfield.spans[3 + 3 * heightfield.width]->next->area == 1);
+
+		freeHeightfieldSpans(heightfield);
+	}
+
+	SECTION("Gradual stairs are walkable")
+	{
+		rcContext context;
+		const int walkableClimb = 6;
+		const int walkableHeight = 10;
+
+		rcHeightfield heightfield;
+		heightfield.width = 5;
+		heightfield.height = 5;
+		heightfield.spans = (rcSpan**)rcAlloc(heightfield.width * heightfield.height * sizeof(rcSpan*), RC_ALLOC_PERM);
+
+		for (int z = 0; z < heightfield.height; ++z)
+		{
+			for (int x = 0; x < heightfield.width; ++x)
+			{
+				rcSpan* span = (rcSpan*)rcAlloc(sizeof(rcSpan), RC_ALLOC_PERM);
+				span->area = 1;
+				span->smin = 0;
+				span->smax = 1 + z * (walkableClimb / 2);
+				span->next = NULL;
+				heightfield.spans[x + z * heightfield.width] = span;
+			}
+		}
+
+		rcFilterLedgeSpans(&context, walkableHeight, walkableClimb, heightfield);
+
+		CHECK(heightfield.spans[1 + 1 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[1 + 2 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[1 + 3 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[2 + 1 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[2 + 2 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[2 + 3 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[3 + 1 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[3 + 2 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[3 + 3 * heightfield.width]->area == 1);
+
+		freeHeightfieldSpans(heightfield);
+	}
+
+	SECTION("Steep stairs are unwalkable")
+	{
+		rcContext context;
+		const int walkableClimb = 6;
+		const int walkableHeight = 10;
+
+		rcHeightfield heightfield;
+		heightfield.width = 5;
+		heightfield.height = 5;
+		heightfield.spans = (rcSpan**)rcAlloc(heightfield.width * heightfield.height * sizeof(rcSpan*), RC_ALLOC_PERM);
+
+		for (int z = 0; z < heightfield.height; ++z)
+		{
+			for (int x = 0; x < heightfield.width; ++x)
+			{
+				rcSpan* span = (rcSpan*)rcAlloc(sizeof(rcSpan), RC_ALLOC_PERM);
+				span->area = 1;
+				span->smin = 0;
+				span->smax = 1 + z * (walkableClimb / 2 + 1);
+				span->next = NULL;
+				heightfield.spans[x + z * heightfield.width] = span;
+			}
+		}
+
+		rcFilterLedgeSpans(&context, walkableHeight, walkableClimb, heightfield);
+
+		CHECK(heightfield.spans[1 + 1 * heightfield.width]->area == 0);
+		CHECK(heightfield.spans[1 + 2 * heightfield.width]->area == 0);
+		CHECK(heightfield.spans[1 + 3 * heightfield.width]->area == 0);
+		CHECK(heightfield.spans[2 + 1 * heightfield.width]->area == 0);
+		CHECK(heightfield.spans[2 + 2 * heightfield.width]->area == 0);
+		CHECK(heightfield.spans[2 + 3 * heightfield.width]->area == 0);
+		CHECK(heightfield.spans[3 + 1 * heightfield.width]->area == 0);
+		CHECK(heightfield.spans[3 + 2 * heightfield.width]->area == 0);
+		CHECK(heightfield.spans[3 + 3 * heightfield.width]->area == 0);
+
+		freeHeightfieldSpans(heightfield);
+	}
+
+	SECTION("Neighbour span at different depth keep layer walkable")
+	{
+		rcContext context;
+		const int walkableClimb = 5;
+		const int walkableHeight = 10;
+
+		rcHeightfield heightfield;
+		heightfield.width = 5;
+		heightfield.height = 5;
+		heightfield.spans = (rcSpan**)rcAlloc(heightfield.width * heightfield.height * sizeof(rcSpan*), RC_ALLOC_PERM);
+
+		for (int z = 0; z < heightfield.height; ++z)
+		{
+			for (int x = 0; x < heightfield.width; ++x)
+			{
+				if (x == 1 && z == 2)
+				{
+					rcSpan* bottomSpan = (rcSpan*)rcAlloc(sizeof(rcSpan), RC_ALLOC_PERM);
+					bottomSpan->area = 1;
+					bottomSpan->smin = 0;
+					bottomSpan->smax = 1;
+
+					rcSpan* topSpan = (rcSpan*)rcAlloc(sizeof(rcSpan), RC_ALLOC_PERM);
+					topSpan->area = 1;
+					topSpan->smin = 40;
+					topSpan->smax = 41;
+					topSpan->next = NULL;
+
+					bottomSpan->next = topSpan;
+
+					heightfield.spans[x + z * heightfield.width] = bottomSpan;
+				}
+				else
+				{
+					rcSpan* bottomSpan = (rcSpan*)rcAlloc(sizeof(rcSpan), RC_ALLOC_PERM);
+					bottomSpan->area = 1;
+					bottomSpan->smin = 20;
+					bottomSpan->smax = 21;
+
+					rcSpan* topSpan = (rcSpan*)rcAlloc(sizeof(rcSpan), RC_ALLOC_PERM);
+					topSpan->area = 1;
+					topSpan->smin = 40;
+					topSpan->smax = 41;
+					topSpan->next = NULL;
+
+					bottomSpan->next = topSpan;
+
+					heightfield.spans[x + z * heightfield.width] = bottomSpan;
+				}
+			}
+		}
+
+		rcFilterLedgeSpans(&context, walkableHeight, walkableClimb, heightfield);
+
+		CHECK(heightfield.spans[1 + 1 * heightfield.width]->area == 0);
+		CHECK(heightfield.spans[1 + 2 * heightfield.width]->area == 0);
+		CHECK(heightfield.spans[1 + 3 * heightfield.width]->area == 0);
+		CHECK(heightfield.spans[2 + 1 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[2 + 2 * heightfield.width]->area == 0);
+		CHECK(heightfield.spans[2 + 3 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[3 + 1 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[3 + 2 * heightfield.width]->area == 1);
+		CHECK(heightfield.spans[3 + 3 * heightfield.width]->area == 1);
+
+		CHECK(heightfield.spans[1 + 1 * heightfield.width]->next->area == 1);
+		CHECK(heightfield.spans[1 + 2 * heightfield.width]->next->area == 1);
+		CHECK(heightfield.spans[1 + 3 * heightfield.width]->next->area == 1);
+		CHECK(heightfield.spans[2 + 1 * heightfield.width]->next->area == 1);
+		CHECK(heightfield.spans[2 + 2 * heightfield.width]->next->area == 1);
+		CHECK(heightfield.spans[2 + 3 * heightfield.width]->next->area == 1);
+		CHECK(heightfield.spans[3 + 1 * heightfield.width]->next->area == 1);
+		CHECK(heightfield.spans[3 + 2 * heightfield.width]->next->area == 1);
+		CHECK(heightfield.spans[3 + 3 * heightfield.width]->next->area == 1);
+
+		freeHeightfieldSpans(heightfield);
+	}
+
+	SECTION("https://github.com/recastnavigation/recastnavigation/pull/672")
+	{
+		rcContext context;
+		const int walkableClimb = 5;
+		const int walkableHeight = 20;
+
+		rcHeightfield heightfield;
+		generateHeightfield(heightfield);
+
+		rcFilterLedgeSpans(&context, walkableHeight, walkableClimb, heightfield);
+
+		CHECK_THAT(getAreas(heightfield.spans[1 + 2 * 5]), Catch::Matchers::Equals(std::vector<unsigned>({1, 0, 0})));
+		CHECK_THAT(getAreas(heightfield.spans[2 + 1 * 5]), Catch::Matchers::Equals(std::vector<unsigned>({1, 0, 0})));
+		CHECK_THAT(getAreas(heightfield.spans[2 + 2 * 5]), Catch::Matchers::Equals(std::vector<unsigned>({1, 1, 1})));
+		CHECK_THAT(getAreas(heightfield.spans[2 + 3 * 5]), Catch::Matchers::Equals(std::vector<unsigned>({1, 1, 1, 1, 0})));
+		CHECK_THAT(getAreas(heightfield.spans[3 + 2 * 5]), Catch::Matchers::Equals(std::vector<unsigned>({1, 0, 0})));
+
+		freeHeightfieldSpans(heightfield);
 	}
 }
 
