@@ -1,6 +1,7 @@
 add_executable(Tests
 	Detour/Tests_Detour.cpp
 	Recast/Tests_Recast.cpp
+	Recast/Tests_RecastFilter.cpp
 	Integration/Issue729.cpp
 )
 
