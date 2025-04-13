@@ -1035,7 +1035,9 @@ void rcFilterLowHangingWalkableObstacles(rcContext* context, int walkableClimb, 
 /// @param[in]		walkableClimb	Maximum ledge height that is considered to still be traversable. 
 /// 								[Limit: >=0] [Units: vx]
 /// @param[in,out]	heightfield			A fully built heightfield.  (All spans have been added.)
-void rcFilterLedgeSpans(rcContext* context, int walkableHeight, int walkableClimb, rcHeightfield& heightfield);
+void rcFilterLedgeSpans(rcContext* context, int walkableHeight, int walkableClimb, rcHeightfield& heightfield, bool log = false);
+
+void rcFilterLedgeSpansNew(rcContext* context, const int walkableHeight, const int walkableClimb, rcHeightfield& heightfield, bool log = false);
 
 /// Marks walkable spans as not walkable if the clearance above the span is less than the specified height.
 /// 

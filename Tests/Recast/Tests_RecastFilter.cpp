@@ -7,6 +7,11 @@
 #include "Recast.h"
 #include "RecastAlloc.h"
 
+#include <iostream>
+#include <random>
+#include <algorithm>
+#include <iomanip>
+
 namespace
 {
 	void freeHeightfieldSpans(const rcHeightfield& heightfield)
@@ -660,6 +665,174 @@ TEST_CASE("rcFilterLedgeSpans", "[recast, filtering]")
 		CHECK_THAT(getAreas(heightfield), Catch::Matchers::Equals(expectedAreas));
 
 		freeHeightfieldSpans(heightfield);
+	}
+
+	SECTION("Random")
+	{
+		rcContext context;
+		const int walkableClimb = 5;
+		const int walkableHeight = 10;
+
+		std::vector<std::size_t> spans(25);
+		std::vector<std::vector<unsigned>> smin(25);
+		std::vector<std::vector<unsigned>> smax(25);
+
+		const auto generate = [&](rcHeightfield& heightfield) {
+			heightfield.width = 5;
+			heightfield.height = 5;
+			heightfield.spans = (rcSpan**)rcAlloc(heightfield.width * heightfield.height * sizeof(rcSpan*), RC_ALLOC_PERM);
+
+			for (int i = 0; i < heightfield.width * heightfield.height; ++i)
+				heightfield.spans[i] = nullptr;
+
+			for (int z = 0; z < heightfield.height; ++z)
+			{
+				for (int x = 0; x < heightfield.width; ++x)
+				{
+					const int index = x + z * heightfield.width;
+					rcSpan* prev = nullptr;
+
+					for (std::size_t i = 0; i < spans[index]; ++i)
+					{
+						rcSpan* span = (rcSpan*)rcAlloc(sizeof(rcSpan), RC_ALLOC_PERM);
+						span->area = 1;
+						span->smin = smin[index][spans[index] - i - 1];
+						span->smax = smax[index][spans[index] - i - 1];
+						span->next = prev;
+						prev = span;
+
+						if (heightfield.spans[x + z * heightfield.width] == nullptr)
+							heightfield.spans[x + z * heightfield.width] = span;
+					}
+				}
+			}
+		};
+
+		std::minstd_rand random;
+		random.seed(1013904223);
+		std::uniform_int_distribution<unsigned> coordinatesDistribution{0, 11};
+		std::uniform_int_distribution<int> spansDistribution{1, 1};
+
+		const std::pair<int, int> fill[] = {
+			{1, 2},
+			{2, 1},
+			{2, 2},
+			{2, 3},
+			{3, 2},
+		};
+
+		for (int i = 0; i < 1000000; ++i)
+		{
+			for (int i = 0; i < 25; ++i)
+				spans[i] = std::max(1, spansDistribution(random));
+
+			for (int i = 0; i < 25; ++i)
+			{
+				if (smin[i].size() < spans[i])
+					smin[i].resize(spans[i], 0);
+				if (smax[i].size() < spans[i])
+					smax[i].resize(spans[i], 1);
+			}
+
+			for (const auto [x, z] : fill)
+			{
+				const int i = x + z * 5;
+				const std::size_t n = spans[i];
+				for (std::size_t j = 0; j < n; ++j)
+				{
+					const unsigned min = coordinatesDistribution(random);
+					smin[i][j] = min;
+					smax[i][j] = std::max(min + 1, coordinatesDistribution(random));
+				}
+			}
+
+			rcHeightfield heightfield1;
+			generate(heightfield1);
+
+			rcHeightfield heightfield2;
+			generate(heightfield2);
+
+			rcFilterLedgeSpans(&context, walkableHeight, walkableClimb, heightfield1);
+			rcFilterLedgeSpansNew(&context, walkableHeight, walkableClimb, heightfield2);
+
+			unsigned diff = 0;
+			unsigned maxDiff = 0;
+
+			for (int z = 0; z < heightfield1.height; ++z)
+			{
+				for (int x = 0; x < heightfield1.width; ++x)
+				{
+					const int index = x + z * heightfield1.width;
+					const rcSpan* span1 = heightfield1.spans[index];
+					const rcSpan* span2 = heightfield2.spans[index];
+
+					while (span1 && span2)
+					{
+						if (span1->area != span2->area)
+							++diff;
+
+						span1 = span1->next;
+						span2 = span2->next;
+					}
+				}
+			}
+
+			freeHeightfieldSpans(heightfield1);
+			freeHeightfieldSpans(heightfield2);
+
+			if (maxDiff < diff)
+				maxDiff = diff;
+
+			if (diff >= maxDiff && diff > 4)
+			{
+				std::cout << "diff=" << diff << std::endl;
+
+				const std::size_t maxSpans = *std::max_element(spans.begin(), spans.end());
+
+				std::cout << "const std::size_t spans[] = {\n";
+				for (int z = 0; z < heightfield1.height; ++z)
+				{
+					for (int x = 0; x < heightfield1.width; ++x)
+						std::cout << std::setw(2) << std::setfill(' ') << spans[x + z * heightfield1.width] << ", ";
+					std::cout << '\n';
+				}
+				std::cout << "};\n";
+
+				std::cout << "const unsigned smin[][] = {\n";
+
+				for (std::size_t i = 0; i < maxSpans; ++i)
+				{
+					std::cout << "{\n";
+					for (int z = 0; z < heightfield1.height; ++z)
+					{
+						for (int x = 0; x < heightfield1.width; ++x)
+							std::cout << std::setw(2) << std::setfill(' ') << smin[x + z * heightfield1.width][0] << ", ";
+						std::cout << '\n';
+					}
+					std::cout << "},\n";
+				}
+
+				std::cout << "};\n";
+
+				std::cout << "const unsigned smax[][] = {\n";
+
+				for (std::size_t i = 0; i < maxSpans; ++i)
+				{
+					std::cout << "{\n";
+					for (int z = 0; z < heightfield1.height; ++z)
+					{
+						for (int x = 0; x < heightfield1.width; ++x)
+							std::cout << std::setw(2) << std::setfill(' ') << smax[x + z * heightfield1.width][0] << ", ";
+						std::cout << '\n';
+					}
+					std::cout << "},\n";
+				}
+
+				std::cout << "};" << std::endl;
+
+				break;
+			}
+		}
 	}
 }
 

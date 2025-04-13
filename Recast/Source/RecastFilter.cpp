@@ -21,6 +21,8 @@
 
 #include <stdlib.h>
 
+#include <iostream>
+
 void rcFilterLowHangingWalkableObstacles(rcContext* context, const int walkableClimb, rcHeightfield& heightfield)
 {
 	rcAssert(context);
@@ -60,7 +62,7 @@ void rcFilterLowHangingWalkableObstacles(rcContext* context, const int walkableC
 }
 
 void rcFilterLedgeSpans(rcContext* context, const int walkableHeight, const int walkableClimb,
-                        rcHeightfield& heightfield)
+						rcHeightfield& heightfield, bool log)
 {
 	rcAssert(context);
 	
@@ -75,6 +77,13 @@ void rcFilterLedgeSpans(rcContext* context, const int walkableHeight, const int 
 	{
 		for (int x = 0; x < xSize; ++x)
 		{
+			const bool debug = (x == 2) && (z == 2) && log;
+
+			if (debug)
+				std::cout << "x=" << x << " z=" << z << std::endl;
+
+			int n = 0;
+
 			for (rcSpan* span = heightfield.spans[x + z * xSize]; span; span = span->next)
 			{
 				// Skip non walkable spans.
@@ -85,6 +94,11 @@ void rcFilterLedgeSpans(rcContext* context, const int walkableHeight, const int 
 
 				const int bot = (int)(span->smax);
 				const int top = span->next ? (int)(span->next->smin) : MAX_HEIGHT;
+
+				if (debug)
+					std::cout << "  n=" << n << " bot=" << bot << " top=" << top << std::endl;
+
+				++n;
 
 				// Find neighbours minimum height.
 				int minNeighborHeight = MAX_HEIGHT;
@@ -97,10 +111,16 @@ void rcFilterLedgeSpans(rcContext* context, const int walkableHeight, const int 
 				{
 					int dx = x + rcGetDirOffsetX(direction);
 					int dy = z + rcGetDirOffsetY(direction);
+
+					if (debug)
+						std::cout << "    direction=" << direction << " dx=" << dx << " dy=" << dy << std::endl;
+
 					// Skip neighbours which are out of bounds.
 					if (dx < 0 || dy < 0 || dx >= xSize || dy >= zSize)
 					{
 						minNeighborHeight = rcMin(minNeighborHeight, -walkableClimb - bot);
+						if (debug)
+							std::cout << "    out of bounds minNeighborHeight=" << minNeighborHeight << std::endl;
 						continue;
 					}
 
@@ -108,18 +128,36 @@ void rcFilterLedgeSpans(rcContext* context, const int walkableHeight, const int 
 					const rcSpan* neighborSpan = heightfield.spans[dx + dy * xSize];
 					int neighborBot = -walkableClimb;
 					int neighborTop = neighborSpan ? (int)neighborSpan->smin : MAX_HEIGHT;
+
+					if (debug)
+						std::cout << "    neighborBot=" << neighborBot << " neighborTop=" << neighborTop
+								  << " rcMin(top, neighborTop)=" << rcMin(top, neighborTop)
+								  << " rcMax(bot, neighborBot)=" << rcMax(bot, neighborBot)
+								  << " d=" << rcMin(top, neighborTop) - rcMax(bot, neighborBot) << std::endl;
 					
 					// Skip neighbour if the gap between the spans is too small.
 					if (rcMin(top, neighborTop) - rcMax(bot, neighborBot) > walkableHeight)
 					{
 						minNeighborHeight = rcMin(minNeighborHeight, neighborBot - bot);
+						if (debug)
+							std::cout << "    minNeighborHeight=" << minNeighborHeight << std::endl;
 					}
+
+					int m = 0;
 
 					// Rest of the spans.
 					for (neighborSpan = heightfield.spans[dx + dy * xSize]; neighborSpan; neighborSpan = neighborSpan->next)
 					{
 						neighborBot = (int)neighborSpan->smax;
 						neighborTop = neighborSpan->next ? (int)neighborSpan->next->smin : MAX_HEIGHT;
+
+						if (debug)
+							std::cout << "      m=" << m++
+									  << " neighborBot=" << neighborBot << " neighborTop=" << neighborTop
+									  << " rcMin(top, neighborTop)=" << rcMin(top, neighborTop)
+									  << " rcMax(bot, neighborBot)=" << rcMax(bot, neighborBot)
+									  << " d=" << rcMin(top, neighborTop) - rcMax(bot, neighborBot)
+									  << std::endl;
 						
 						// Skip neighbour if the gap between the spans is too small.
 						if (rcMin(top, neighborTop) - rcMax(bot, neighborBot) > walkableHeight)
@@ -129,24 +167,207 @@ void rcFilterLedgeSpans(rcContext* context, const int walkableHeight, const int 
 							// Find min/max accessible neighbour height. 
 							if (rcAbs(neighborBot - bot) <= walkableClimb)
 							{
-								if (neighborBot < accessibleNeighborMinHeight) accessibleNeighborMinHeight = neighborBot;
-								if (neighborBot > accessibleNeighborMaxHeight) accessibleNeighborMaxHeight = neighborBot;
+								if (neighborBot < accessibleNeighborMinHeight)
+								{
+									accessibleNeighborMinHeight = neighborBot;
+									if (debug)
+										std::cout << "      accessibleNeighborMinHeight=" << accessibleNeighborMinHeight << std::endl;
+								}
+
+								if (neighborBot > accessibleNeighborMaxHeight)
+								{
+									accessibleNeighborMaxHeight = neighborBot;
+									if (debug)
+										std::cout << "      accessibleNeighborMaxHeight=" << accessibleNeighborMaxHeight << std::endl;
+								}
 							}
 
 						}
 					}
 				}
 
+				if (debug)
+					std::cout << "  end minNeighborHeight=" << minNeighborHeight
+							  << " accessibleNeighborMaxHeight=" << accessibleNeighborMaxHeight
+							  << " accessibleNeighborMinHeight=" << accessibleNeighborMinHeight
+							  << " d=" << (accessibleNeighborMaxHeight - accessibleNeighborMinHeight)
+							  << std::endl;
+
 				// The current span is close to a ledge if the drop to any
 				// neighbour span is less than the walkableClimb.
 				if (minNeighborHeight < -walkableClimb)
 				{
+					if (debug)
+						std::cout << "  RC_NULL_AREA minNeighborHeight" << std::endl;
 					span->area = RC_NULL_AREA;
 				}
 				// If the difference between all neighbours is too large,
 				// we are at steep slope, mark the span as ledge.
 				else if ((accessibleNeighborMaxHeight - accessibleNeighborMinHeight) > walkableClimb)
 				{
+					if (debug)
+						std::cout << "  RC_NULL_AREA accessibleNeighborMaxHeight" << std::endl;
+					span->area = RC_NULL_AREA;
+				}
+			}
+		}
+	}
+}
+
+void rcFilterLedgeSpansNew(rcContext* context, const int walkableHeight, const int walkableClimb,
+						   rcHeightfield& heightfield, bool log)
+{
+	rcAssert(context);
+
+	rcScopedTimer timer(context, RC_TIMER_FILTER_BORDER);
+
+	const int xSize = heightfield.width;
+	const int zSize = heightfield.height;
+	const int MAX_HEIGHT = 0xffff; // TODO (graham): Move this to a more visible constant and update usages.
+
+	// Mark border spans.
+	for (int z = 0; z < zSize; ++z)
+	{
+		for (int x = 0; x < xSize; ++x)
+		{
+			const bool debug = (x == 2) && (z == 2) && log;
+
+			if (debug)
+				std::cout << "x=" << x << " z=" << z << std::endl;
+
+			int n = 0;
+
+			for (rcSpan* span = heightfield.spans[x + z * xSize]; span; span = span->next)
+			{
+				// Skip non walkable spans.
+				if (span->area == RC_NULL_AREA)
+				{
+					continue;
+				}
+
+				const int bot = (int)(span->smax);
+				const int top = span->next ? (int)(span->next->smin) : MAX_HEIGHT;
+
+				if (debug)
+					std::cout << "  n=" << n << " bot=" << bot << " top=" << top << std::endl;
+
+				++n;
+
+				// Find neighbours minimum height.
+				int minNeighborHeight = MAX_HEIGHT;
+
+				// Min and max height of accessible neighbours.
+				int accessibleNeighborMinHeight = span->smax;
+				int accessibleNeighborMaxHeight = span->smax;
+
+				for (int direction = 0; direction < 4; ++direction)
+				{
+					int dx = x + rcGetDirOffsetX(direction);
+					int dz = z + rcGetDirOffsetY(direction);
+
+					if (debug)
+						std::cout << "    direction=" << direction << " dx=" << dx << " dz=" << dz << std::endl;
+
+					// Skip neighbours which are out of bounds.
+					if (dx < 0 || dz < 0 || dx >= xSize || dz >= zSize)
+					{
+						minNeighborHeight = (-walkableClimb - 1) ;
+						if (debug)
+							std::cout << "    out of bounds minNeighborHeight=" << minNeighborHeight << std::endl;
+						break;
+					}
+
+					// From minus infinity to the first span.
+					const rcSpan* neighborSpan = heightfield.spans[dx + dz * xSize];
+					int neighborTop = neighborSpan ? (int)neighborSpan->smin : MAX_HEIGHT;
+
+					if (debug)
+						std::cout << "    top=" << top << " neighborTop=" << neighborTop
+								  << " rcMin(top, neighborTop)=" << rcMin(top, neighborTop)
+								  << " bot=" << bot
+								  << " d=" << rcMin(top, neighborTop) - bot << std::endl;
+
+					// Skip neighbour if the gap between the spans is too small.
+					if (rcMin(top, neighborTop) - bot >= walkableHeight)
+					{
+						minNeighborHeight = (-walkableClimb - 1);
+						if (debug)
+							std::cout << "    minNeighborHeight=" << minNeighborHeight << std::endl;
+						break;
+					}
+
+					int m = 0;
+
+					// Rest of the spans.
+					for (neighborSpan = heightfield.spans[dx + dz * xSize]; neighborSpan; neighborSpan = neighborSpan->next)
+					{
+						int neighborBot = (int)neighborSpan->smax;
+						neighborTop = neighborSpan->next ? (int)neighborSpan->next->smin : MAX_HEIGHT;
+
+						if (debug)
+							std::cout << "      m=" << m
+									  << " neighborBot=" << neighborBot << " neighborTop=" << neighborTop
+									  << " rcMin(top, neighborTop)=" << rcMin(top, neighborTop)
+									  << " rcMax(bot, neighborBot)=" << rcMax(bot, neighborBot)
+									  << " d=" << rcMin(top, neighborTop) - rcMax(bot, neighborBot)
+									  << std::endl;
+
+						++m;
+
+						// Skip neighbour if the gap between the spans is too small.
+						if (rcMin(top, neighborTop) - rcMax(bot, neighborBot) >= walkableHeight)
+						{
+							int accessibleNeighbourHeight = neighborBot - bot;
+							minNeighborHeight = rcMin(minNeighborHeight, accessibleNeighbourHeight);
+
+							// Find min/max accessible neighbour height.
+							if (rcAbs(accessibleNeighbourHeight) <= walkableClimb)
+							{
+								if (neighborBot < accessibleNeighborMinHeight)
+								{
+									accessibleNeighborMinHeight = neighborBot;
+									if (debug)
+										std::cout << "      accessibleNeighborMinHeight=" << accessibleNeighborMinHeight << std::endl;
+								}
+								if (neighborBot > accessibleNeighborMaxHeight)
+								{
+									accessibleNeighborMaxHeight = neighborBot;
+									if (debug)
+										std::cout << "      accessibleNeighborMaxHeight=" << accessibleNeighborMaxHeight << std::endl;
+								}
+							}
+							else if (accessibleNeighbourHeight < -walkableClimb)
+							{
+								if (debug)
+									std::cout << "      break accessibleNeighbourHeight=" << accessibleNeighbourHeight << std::endl;
+								break;
+							}
+
+						}
+					}
+				}
+
+				if (debug)
+					std::cout << "  end minNeighborHeight=" << minNeighborHeight
+							  << " accessibleNeighborMaxHeight=" << accessibleNeighborMaxHeight
+							  << " accessibleNeighborMinHeight=" << accessibleNeighborMinHeight
+							  << " d=" << (accessibleNeighborMaxHeight - accessibleNeighborMinHeight)
+							  << std::endl;
+
+				// The current span is close to a ledge if the drop to any
+				// neighbour span is less than the walkableClimb.
+				if (minNeighborHeight < -walkableClimb)
+				{
+					if (debug)
+						std::cout << "  RC_NULL_AREA minNeighborHeight" << std::endl;
+					span->area = RC_NULL_AREA;
+				}
+				// If the difference between all neighbours is too large,
+				// we are at steep slope, mark the span as ledge.
+				else if ((accessibleNeighborMaxHeight - accessibleNeighborMinHeight) > walkableClimb)
+				{
+					if (debug)
+						std::cout << "  RC_NULL_AREA accessibleNeighborMaxHeight" << std::endl;
 					span->area = RC_NULL_AREA;
 				}
 			}
