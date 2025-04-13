@@ -130,7 +130,7 @@ void rcFilterLedgeSpans(rcContext* context, const int walkableHeight, const int 
 						neighborCeiling = neighborSpan->next ? (int)neighborSpan->next->smin : MAX_HEIGHTFIELD_HEIGHT;
 
 						// Only consider neighboring areas that have enough overlap to be potentially traversable.
-						if (rcMin(ceiling, neighborCeiling) - rcMax(floor, neighborFloor) < walkableHeight)
+						if (rcMin(ceiling, neighborCeiling) - rcMax(floor, neighborFloor) <= walkableHeight)
 						{
 							// No space to traverse between them.
 							continue;

@@ -597,7 +597,7 @@ TEST_CASE("rcFilterLedgeSpans", "[recast, filtering]")
 
 		{
 			const std::vector<unsigned> areas = getAreas(heightfield.spans[2 + 2 * 5]);
-			REQUIRE_THAT(areas, Catch::Matchers::Equals(std::vector<unsigned>({1, 1, 1, 1, 0, 1})));
+			REQUIRE_THAT(areas, Catch::Matchers::Equals(std::vector<unsigned>({1, 1, 1, 1, 1, 1})));
 		}
 
 		{
