@@ -14,7 +14,7 @@ option(RECASTNAVIGATION_TESTS "Build tests" ON)
 option(RECASTNAVIGATION_EXAMPLES "Build examples" ON)
 option(RECASTNAVIGATION_DT_POLYREF64 "Use 64bit polyrefs instead of 32bit for Detour" OFF)
 option(RECASTNAVIGATION_DT_VIRTUAL_QUERYFILTER "Use dynamic dispatch for dtQueryFilter in Detour to allow for custom filters" OFF)
-option(RECASTNAVIGATION_ENABLE_ASSERTS "Enable custom recastnavigation asserts" "$<IF:$<CONFIG:Debug>,ON,OFF>")
+set(RECASTNAVIGATION_ENABLE_ASSERTS "$<CONFIG:Debug>" CACHE STRING "Condition to enable custom recastnavigation asserts, evaluated as generator expression")
 
 if(MSVC AND BUILD_SHARED_LIBS)
     set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)

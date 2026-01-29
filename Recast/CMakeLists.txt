@@ -10,9 +10,7 @@ target_include_directories(Recast PUBLIC
     "$<BUILD_INTERFACE:${Recast_INCLUDE_DIR}>"
 )
 
-if(NOT RECASTNAVIGATION_ENABLE_ASSERTS)
-    target_compile_definitions(Recast PUBLIC RC_DISABLE_ASSERTS)
-endif()
+target_compile_definitions(Recast PUBLIC "$<$<NOT:${RECASTNAVIGATION_ENABLE_ASSERTS}>:RC_DISABLE_ASSERTS>")
 
 set_target_properties(Recast PROPERTIES
         SOVERSION ${SOVERSION}
