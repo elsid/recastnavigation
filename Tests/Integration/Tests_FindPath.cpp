@@ -1,27 +1,33 @@
 #include "DetourNavMesh.h"
 #include "DetourNavMeshBuilder.h"
 #include "DetourNavMeshQuery.h"
+#include "DetourTileCache.h"
+#include "DetourTileCacheBuilder.h"
 #include "Recast.h"
 #include "RecastAlloc.h"
 
 #include "catch2/catch_amalgamated.hpp"
 
+#include <cmath>
 #include <memory>
 
 namespace
 {
 
 constexpr int tileSize = 128;
-constexpr float cellSize = 0.2f;
-constexpr float cellHeight = cellSize;
+constexpr float cellSize = 0.3f;
+constexpr float cellHeight = 0.2f;
 constexpr float tileSizeFloat = tileSize * cellSize;
-constexpr int borderSize = 16;
-constexpr int width = tileSize + 2 * borderSize;
-constexpr int height = tileSize + 2 * borderSize;
-constexpr float walkableSlopeAngle = 49;
-constexpr int walkableClimb = 3;
-constexpr int walkableHeight = 12;
-constexpr int walkableRadius = 4;
+constexpr float walkableHeightFloat = 2;
+constexpr float walkableRadiusFloat = 0.6f;
+constexpr float walkableClimbFloat = 0.9f;
+constexpr float walkableSlopeAngle = 45;
+const int walkableHeight = static_cast<int>(std::ceil(walkableHeightFloat / cellHeight));
+const int walkableRadius = static_cast<int>(std::ceil(walkableRadiusFloat / cellSize));
+const int walkableClimb = static_cast<int>(std::floor(walkableClimbFloat / cellHeight));
+const int borderSize = walkableRadius + 3;
+const int width = tileSize + 2 * borderSize;
+const int height = tileSize + 2 * borderSize;
 constexpr int minRegionArea = 64;
 constexpr int mergeRegionArea = 400;
 constexpr float maxError = 1.3f;
@@ -31,23 +37,14 @@ constexpr int maxVertsPerPoly = 6;
 constexpr float sampleDist = 1.2f;
 constexpr float sampleMaxError = 0.2f;
 constexpr int walkableFlag = 1;
-constexpr float walkableHeightFloat = 3.91176f;
-constexpr float walkableRadiusFloat = 0.723745f;
-constexpr float walkableClimbFloat = 0.6f;
 constexpr int maxNodes = 128;
-
-struct FreePolyMeshDetail
-{
-    void operator()(rcPolyMeshDetail* ptr) const
-    {
-        rcFree(ptr->meshes);
-        ptr->meshes = nullptr;
-        rcFree(ptr->verts);
-        ptr->verts = nullptr;
-        rcFree(ptr->tris);
-        ptr->tris = nullptr;
-    }
-};
+constexpr float offsetX = tileSize / 2 * cellSize * 0.9f;
+constexpr float offsetY = 0;
+constexpr float offsetZ = offsetX;
+constexpr float radius = offsetX * 0.9f;
+const float stepHeight = walkableClimb * cellHeight * 0.9f;
+constexpr float stepAngle = 0.19634954084936207f;
+constexpr int steps = 64;
 
 float minXyBounds(int value)
 {
@@ -76,38 +73,29 @@ unsigned short getFlag(unsigned char area)
     return 0;
 }
 
-void addTile(rcContext& context, int x, int y, int layer, bool limitLayer, const float* verts, const int vertCount, const int* tris, const int triCount, dtNavMesh& navMesh)
+template <typename T, std::size_t n>
+constexpr std::size_t size(const T (&)[n]) noexcept
+{
+    return n;
+}
+
+struct FreePolyMeshDetail
+{
+    void operator()(rcPolyMeshDetail* ptr) const
+    {
+        rcFree(ptr->meshes);
+        ptr->meshes = nullptr;
+        rcFree(ptr->verts);
+        ptr->verts = nullptr;
+        rcFree(ptr->tris);
+        ptr->tris = nullptr;
+    }
+};
+
+void addTile(rcContext& context, int x, int y, int layer, const float* verts, const int vertCount, const int* tris, const int triCount, const float* minBounds, const float* maxBounds, dtNavMesh& navMesh)
 {
     REQUIRE(vertCount > 0);
     REQUIRE(triCount > 0);
-
-    float minLayer;
-    float maxLayer;
-    if (limitLayer)
-    {
-        minLayer = minLayerBounds(layer);
-        maxLayer = maxLayerBounds(layer);
-    }
-    else
-    {
-        float minBounds[3];
-        float maxBounds[3];
-        rcCalcBounds(verts, vertCount, minBounds, maxBounds);
-        minLayer = minBounds[1];
-        maxLayer = maxBounds[1];
-    }
-
-    const float minBounds[3] = {
-        minXyBounds(x),
-        minLayer,
-        minXyBounds(y),
-    };
-
-    const float maxBounds[3] = {
-        maxXyBounds(x),
-        maxLayer,
-        maxXyBounds(y),
-    };
 
     rcHeightfield solid;
     REQUIRE(rcCreateHeightfield(&context, solid, width, height, minBounds, maxBounds, cellSize, cellHeight));
@@ -125,6 +113,10 @@ void addTile(rcContext& context, int x, int y, int layer, bool limitLayer, const
     rcCompactHeightfield compact;
     REQUIRE(rcBuildCompactHeightfield(&context, walkableHeight, walkableClimb, solid, compact));
     REQUIRE(rcErodeWalkableArea(&context, walkableRadius, compact));
+
+    rcHeightfieldLayerSet heightfieldLayerdSet;
+    REQUIRE(rcBuildHeightfieldLayers(&context, compact, borderSize, walkableHeight, heightfieldLayerdSet));
+
     REQUIRE(rcBuildDistanceField(&context, compact));
     REQUIRE(rcBuildRegions(&context, compact, borderSize, minRegionArea, mergeRegionArea));
 
@@ -180,9 +172,12 @@ void addTile(rcContext& context, int x, int y, int layer, bool limitLayer, const
     params.tileY = y;
     params.tileLayer = layer;
 
-    unsigned char* navMeshData;
-    int navMeshDataSize;
+    unsigned char* navMeshData = 0;
+    int navMeshDataSize = 0;
     REQUIRE(dtCreateNavMeshData(&params, &navMeshData, &navMeshDataSize));
+
+    REQUIRE(navMeshData != nullptr);
+    REQUIRE(navMeshDataSize > 0);
 
     const int flags = DT_TILE_FREE_DATA;
     const dtTileRef lastRef = 0;
@@ -190,9 +185,242 @@ void addTile(rcContext& context, int x, int y, int layer, bool limitLayer, const
     REQUIRE(navMesh.addTile(navMeshData, navMeshDataSize, flags, lastRef, result) == DT_SUCCESS);
 }
 
+void addTile2d(rcContext& context, int x, int y, const float* verts, const int vertCount, const int* tris, const int triCount, dtNavMesh& navMesh)
+{
+    float minLayer;
+    float maxLayer;
+
+    {
+        float minBounds[3];
+        float maxBounds[3];
+        rcCalcBounds(verts, vertCount, minBounds, maxBounds);
+        minLayer = minBounds[1];
+        maxLayer = maxBounds[1];
+    }
+
+    const float minBounds[3] = {
+        minXyBounds(x),
+        minLayer,
+        minXyBounds(y),
+    };
+
+    const float maxBounds[3] = {
+        maxXyBounds(x),
+        maxLayer,
+        maxXyBounds(y),
+    };
+
+    addTile(context, x, y, 0, verts, vertCount, tris, triCount, minBounds, maxBounds, navMesh);
 }
 
-TEST_CASE("FindPathOverSlope")
+void addTile3d(rcContext& context, int x, int y, int layer, const float* verts, const int vertCount, const int* tris, const int triCount, dtNavMesh& navMesh)
+{
+    const float minBounds[3] = {
+        minXyBounds(x),
+        minLayerBounds(layer),
+        minXyBounds(y),
+    };
+
+    const float maxBounds[3] = {
+        maxXyBounds(x),
+        maxLayerBounds(layer),
+        maxXyBounds(y),
+    };
+
+    addTile(context, x, y, layer, verts, vertCount, tris, triCount, minBounds, maxBounds, navMesh);
+}
+
+template <class R, class T>
+R cast(const T& value)
+{
+    if constexpr (sizeof(R) < sizeof(T))
+    {
+        REQUIRE(value >= static_cast<T>(std::numeric_limits<R>::lowest()));
+        REQUIRE(value <= static_cast<T>(std::numeric_limits<R>::max()));
+    }
+    return static_cast<T>(value);
+}
+
+struct TileCacheCompressor final : dtTileCacheCompressor
+{
+    int maxCompressedSize(const int bufferSize) override
+    {
+        return bufferSize;
+    }
+
+    dtStatus compress(const unsigned char* buffer, const int bufferSize,
+        unsigned char* compressed, const int maxCompressedSize, int* compressedSize) override
+    {
+        if (maxCompressedSize < bufferSize)
+            return DT_FAILURE;
+        std::memcpy(compressed, buffer, bufferSize);
+        *compressedSize = bufferSize;
+        return DT_SUCCESS;
+    }
+
+    dtStatus decompress(const unsigned char* compressed, const int compressedSize,
+        unsigned char* buffer, const int maxBufferSize, int* bufferSize) override
+    {
+        if (maxBufferSize < compressedSize)
+            return DT_FAILURE;
+        std::memcpy(buffer, compressed, compressedSize);
+        *bufferSize = compressedSize;
+        return DT_SUCCESS;
+    }
+};
+
+struct TileCacheMeshProcess final : public dtTileCacheMeshProcess
+{
+    void process(dtNavMeshCreateParams* params, unsigned char* polyAreas, unsigned short* polyFlags) override
+    {
+        for (int i = 0; i < params->polyCount; ++i)
+            polyFlags[i] = getFlag(polyAreas[i]);
+    }
+};
+
+void addTiles(rcContext& context, int x, int y, const float* verts, const int vertCount, const int* tris, const int triCount, dtTileCache& tileCache, dtNavMesh& navMesh)
+{
+    REQUIRE(vertCount > 0);
+    REQUIRE(triCount > 0);
+
+    float minLayer;
+    float maxLayer;
+
+    {
+        float minBounds[3];
+        float maxBounds[3];
+        rcCalcBounds(verts, vertCount, minBounds, maxBounds);
+        minLayer = minBounds[1];
+        maxLayer = maxBounds[1];
+    }
+
+    const float minBounds[3] = {
+        minXyBounds(x),
+        minLayer,
+        minXyBounds(y),
+    };
+
+    const float maxBounds[3] = {
+        maxXyBounds(x),
+        maxLayer,
+        maxXyBounds(y),
+    };
+
+    rcHeightfield solid;
+    REQUIRE(rcCreateHeightfield(&context, solid, width, height, minBounds, maxBounds, cellSize, cellHeight));
+
+    rcTempVector<unsigned char> triAreaIDs(static_cast<std::size_t>(triCount), RC_WALKABLE_AREA);
+
+    rcClearUnwalkableTriangles(&context, walkableSlopeAngle, verts, vertCount, tris, triCount, triAreaIDs.data());
+
+    REQUIRE(rcRasterizeTriangles(&context, verts, vertCount, tris, triAreaIDs.data(), triCount, solid, walkableClimb));
+
+    rcFilterLowHangingWalkableObstacles(&context, walkableClimb, solid);
+    rcFilterLedgeSpans(&context, walkableHeight, walkableClimb, solid);
+    rcFilterWalkableLowHeightSpans(&context, walkableHeight, solid);
+
+    rcCompactHeightfield compact;
+    REQUIRE(rcBuildCompactHeightfield(&context, walkableHeight, walkableClimb, solid, compact));
+    REQUIRE(rcErodeWalkableArea(&context, walkableRadius, compact));
+
+    rcHeightfieldLayerSet heightfieldLayerdSet;
+    REQUIRE(rcBuildHeightfieldLayers(&context, compact, borderSize, walkableHeight, heightfieldLayerdSet));
+
+    REQUIRE(heightfieldLayerdSet.nlayers > 0);
+
+    for (int layer = 0; layer < heightfieldLayerdSet.nlayers; ++layer)
+    {
+        const rcHeightfieldLayer& heightfieldLayer = heightfieldLayerdSet.layers[layer];
+
+        dtTileCacheLayerHeader header;
+        header.magic = DT_TILECACHE_MAGIC;
+        header.version = DT_TILECACHE_VERSION;
+        header.tx = x;
+        header.ty = y;
+        header.tlayer = layer;
+        rcVcopy(header.bmin, heightfieldLayer.bmin);
+        rcVcopy(header.bmax, heightfieldLayer.bmax);
+        header.width = cast<unsigned char>(heightfieldLayer.width);
+        header.height = cast<unsigned char>(heightfieldLayer.height);
+        header.minx = cast<unsigned char>(heightfieldLayer.minx);
+        header.maxx = cast<unsigned char>(heightfieldLayer.maxx);
+        header.miny = cast<unsigned char>(heightfieldLayer.miny);
+        header.maxy = cast<unsigned char>(heightfieldLayer.maxy);
+        header.hmin = cast<unsigned short>(heightfieldLayer.hmin);
+        header.hmax = cast<unsigned short>(heightfieldLayer.hmax);
+
+        unsigned char* tileData = nullptr;
+        int tileDataSize = 0;
+        REQUIRE(dtBuildTileCacheLayer(tileCache.getCompressor(), &header, heightfieldLayer.heights, heightfieldLayer.areas, heightfieldLayer.cons, &tileData, &tileDataSize) == DT_SUCCESS);
+
+        REQUIRE(tileData != nullptr);
+        REQUIRE(tileDataSize > 0);
+
+        const int flags = DT_COMPRESSEDTILE_FREE_DATA;
+        dtCompressedTileRef tileRef;
+
+        REQUIRE(tileCache.addTile(tileData, tileDataSize, flags, &tileRef) == DT_SUCCESS);
+
+        REQUIRE(tileCache.buildNavMeshTile(tileRef, &navMesh) == DT_SUCCESS);
+    }
+}
+
+struct Mesh
+{
+    rcPermVector<float> verts;
+    rcPermVector<int> tris;
+};
+
+void addVertex(const float* v, Mesh& mesh)
+{
+    for (int i = 0; i < 3; ++i)
+        mesh.verts.push_back(v[i]);
+}
+
+void addTriangle(int a, int b, int c, Mesh& mesh)
+{
+    mesh.tris.push_back(a);
+    mesh.tris.push_back(b);
+    mesh.tris.push_back(c);
+}
+
+Mesh generateSpiralStairs(float offsetX, float offsetY, float offsetZ, float radius, float stepHeight, float stepAngle, int steps)
+{
+    Mesh result;
+    int baseIndex = 0;
+
+    for (int step = 0; step < steps; ++step)
+    {
+        const float height = offsetY + step * stepHeight;
+        const float angle = step * stepAngle;
+        const float nextAngle = (step + 1) * stepAngle;
+
+        const float inner[3] = {offsetX, height, offsetZ};
+        addVertex(inner, result);
+
+        const float outerA[3] = {offsetX + radius * std::cos(angle), height, offsetZ + radius * std::sin(angle)};
+        addVertex(outerA, result);
+
+        const float outerB[3] = {offsetX + radius * std::cos(nextAngle), height, offsetZ + radius * std::sin(nextAngle)};
+        addVertex(outerB, result);
+
+        if (step > 0)
+        {
+            addTriangle(baseIndex, baseIndex - 1, baseIndex - 3, result);
+            addTriangle(baseIndex, baseIndex + 1, baseIndex - 1, result);
+        }
+
+        addTriangle(baseIndex, baseIndex + 2, baseIndex + 1, result);
+
+        baseIndex += 3;
+    }
+
+    return result;
+}
+
+}
+
+TEST_CASE("FindPathOverSpiralStairsWithNavMesh")
 {
     using Catch::Matchers::WithinAbs;
 
@@ -207,101 +435,178 @@ TEST_CASE("FindPathOverSlope")
 
     REQUIRE(navMesh.init(&navMeshParams) == DT_SUCCESS);
 
-    dtNavMeshQuery navMeshQuery;
-
-    REQUIRE(navMeshQuery.init(&navMesh, maxNodes) == DT_SUCCESS);
-
-    dtQueryFilter queryFilter;
-    queryFilter.setIncludeFlags(walkableFlag);
-    queryFilter.setAreaCost(RC_WALKABLE_AREA, 1);
-
     rcContext context;
 
-    constexpr float verts[] = {
-        0, -8, 1, // 0
-        6, -4, 1, // 1
-        12, 0, 1, // 2
-        18, 4, 1, // 3
-        24, 8, 1, // 4
+    const Mesh mesh = generateSpiralStairs(offsetX, offsetY, offsetZ, radius, stepHeight, stepAngle, steps);
 
-        0, -8, 25, // 5
-        6, -4, 25, // 6
-        12, 0, 25, // 7
-        18, 4, 25, // 8
-        24, 8, 25, // 9
-    };
-    constexpr int tris[] = {
-        0, 6, 1,
-        0, 5, 6,
-        1, 7, 2,
-        1, 6, 7,
-        2, 8, 3,
-        2, 7, 8,
-        3, 9, 4,
-        3, 8, 9,
-    };
+    const int vertCount = mesh.verts.size() / 3;
+    const int triCount = mesh.tris.size() / 3;
 
-    constexpr int vertCount = std::size(verts) / 3;
-    constexpr int triCount = std::size(tris) / 3;
-
-    constexpr float startPos[3] = {1, -8, 13};
-    constexpr float endPos[3] = {24, 8, 13};
-    constexpr float polyHalfExtents[3] = {1, 1, 1};
+    const float* startPos = &mesh.verts[1 * 3];
+    const float* endPos = &mesh.verts[mesh.verts.size() - 3];
+    constexpr float polyHalfExtents[3] = {2, 2, 2};
 
     SECTION("Should build single tile navmesh and find path")
     {
-        addTile(context, 0, 0, 0, false, verts, vertCount, tris, triCount, navMesh);
+        addTile2d(context, 0, 0, mesh.verts.data(), vertCount, mesh.tris.data(), triCount, navMesh);
 
-        float startNavMeshPos[3] {};
+        dtNavMeshQuery navMeshQuery;
+
+        REQUIRE(navMeshQuery.init(&navMesh, maxNodes) == DT_SUCCESS);
+
+        dtQueryFilter queryFilter;
+        queryFilter.setIncludeFlags(walkableFlag);
+        queryFilter.setAreaCost(RC_WALKABLE_AREA, 1);
+
+        float startNavMeshPos[3];
         dtPolyRef startRef = 0;
-        CHECK(navMeshQuery.findNearestPoly(startPos, polyHalfExtents, &queryFilter, &startRef, startNavMeshPos) == DT_SUCCESS);
-        CHECK(startRef != 0);
-        CHECK_THAT(startNavMeshPos[0], WithinAbs(1.0f, 1e-3));
-        CHECK_THAT(startNavMeshPos[1], WithinAbs(-7.2f, 1e-3));
-        CHECK_THAT(startNavMeshPos[2], WithinAbs(13.0f, 1e-3));
+        REQUIRE(navMeshQuery.findNearestPoly(startPos, polyHalfExtents, &queryFilter, &startRef, startNavMeshPos) == DT_SUCCESS);
+        REQUIRE(startRef != 0);
+        CHECK_THAT(startNavMeshPos[0], WithinAbs(32.1f, 1e-3));
+        CHECK_THAT(startNavMeshPos[1], WithinAbs(0.2f, 1e-3));
+        CHECK_THAT(startNavMeshPos[2], WithinAbs(18.0f, 1e-3));
 
-        float endNavMeshPos[3] {};
-        dtPolyRef endRef;
-        CHECK(navMeshQuery.findNearestPoly(endPos, polyHalfExtents, &queryFilter, &endRef, endNavMeshPos) == DT_SUCCESS);
-        CHECK(endRef != 0);
-        CHECK_THAT(endNavMeshPos[0], WithinAbs(23.0f, 1e-3));
-        CHECK_THAT(endNavMeshPos[1], WithinAbs(7.6f, 1e-3));
-        CHECK_THAT(endNavMeshPos[2], WithinAbs(13.0f, 1e-3));
-
-        CHECK(startRef == endRef);
+        float endNavMeshPos[3];
+        dtPolyRef endRef = 0;
+        REQUIRE(navMeshQuery.findNearestPoly(endPos, polyHalfExtents, &queryFilter, &endRef, endNavMeshPos) == DT_SUCCESS);
+        REQUIRE(endRef != 0);
+        CHECK_THAT(endNavMeshPos[0], WithinAbs(32.1f, 1e-3));
+        CHECK_THAT(endNavMeshPos[1], WithinAbs(45.4f, 1e-3));
+        CHECK_THAT(endNavMeshPos[2], WithinAbs(16.5f, 1e-3));
 
         int pathLen = 0;
-        dtPolyRef pathBuffer[16] {};
-        CHECK(navMeshQuery.findPath(startRef, endRef, startPos, endPos, &queryFilter, pathBuffer, &pathLen, std::size(pathBuffer)) == DT_SUCCESS);
-        CHECK(pathLen == 1);
+        dtPolyRef pathBuffer[32];
+        CHECK(navMeshQuery.findPath(startRef, endRef, startNavMeshPos, endNavMeshPos, &queryFilter, pathBuffer, &pathLen, size(pathBuffer)) == DT_SUCCESS);
+        REQUIRE(pathLen > 0);
         CHECK(pathBuffer[0] == startRef);
+        CHECK(pathBuffer[pathLen - 1] == endRef);
     }
 
     SECTION("Should build 2 layered tiles navmesh and find path")
     {
-        addTile(context, 0, 0, -1, true, verts, vertCount, tris, triCount, navMesh);
-        addTile(context, 0, 0, 0, true, verts, vertCount, tris, triCount, navMesh);
+        addTile3d(context, 0, 0, 0, mesh.verts.data(), vertCount, mesh.tris.data(), triCount, navMesh);
+        addTile3d(context, 0, 0, 1, mesh.verts.data(), vertCount, mesh.tris.data(), triCount, navMesh);
 
-        float startNavMeshPos[3] {};
+        dtNavMeshQuery navMeshQuery;
+
+        REQUIRE(navMeshQuery.init(&navMesh, maxNodes) == DT_SUCCESS);
+
+        dtQueryFilter queryFilter;
+        queryFilter.setIncludeFlags(walkableFlag);
+        queryFilter.setAreaCost(RC_WALKABLE_AREA, 1);
+
+        float startNavMeshPos[3];
         dtPolyRef startRef = 0;
-        CHECK(navMeshQuery.findNearestPoly(startPos, polyHalfExtents, &queryFilter, &startRef, startNavMeshPos) == DT_SUCCESS);
-        CHECK(startRef != 0);
-        CHECK_THAT(startNavMeshPos[0], WithinAbs(1.0f, 1e-3));
-        CHECK_THAT(startNavMeshPos[1], WithinAbs(-7.2f, 1e-3));
-        CHECK_THAT(startNavMeshPos[2], WithinAbs(13.0f, 1e-3));
+        REQUIRE(navMeshQuery.findNearestPoly(startPos, polyHalfExtents, &queryFilter, &startRef, startNavMeshPos) == DT_SUCCESS);
+        REQUIRE(startRef != 0);
+        CHECK_THAT(startNavMeshPos[0], WithinAbs(32.1f, 1e-3));
+        CHECK_THAT(startNavMeshPos[1], WithinAbs(0.2f, 1e-3));
+        CHECK_THAT(startNavMeshPos[2], WithinAbs(18.0f, 1e-3));
 
-        float endNavMeshPos[3] {};
-        dtPolyRef endRef;
-        CHECK(navMeshQuery.findNearestPoly(endPos, polyHalfExtents, &queryFilter, &endRef, endNavMeshPos) == DT_SUCCESS);
-        CHECK(endRef != 0);
-        CHECK_THAT(endNavMeshPos[0], WithinAbs(23.0f, 1e-3));
-        CHECK_THAT(endNavMeshPos[1], WithinAbs(7.6f, 1e-3));
-        CHECK_THAT(endNavMeshPos[2], WithinAbs(13.0f, 1e-3));
+        float endNavMeshPos[3];
+        dtPolyRef endRef = 0;
+        REQUIRE(navMeshQuery.findNearestPoly(endPos, polyHalfExtents, &queryFilter, &endRef, endNavMeshPos) == DT_SUCCESS);
+        REQUIRE(endRef != 0);
+        CHECK_THAT(endNavMeshPos[0], WithinAbs(32.1f, 1e-3));
+        CHECK_THAT(endNavMeshPos[1], WithinAbs(45.4f, 1e-3));
+        CHECK_THAT(endNavMeshPos[2], WithinAbs(16.5f, 1e-3));
 
         int pathLen = 0;
-        dtPolyRef pathBuffer[16] {};
-        CHECK(navMeshQuery.findPath(startRef, endRef, startPos, endPos, &queryFilter, pathBuffer, &pathLen, std::size(pathBuffer)) == DT_SUCCESS);
-        CHECK(pathLen >= 2);
+        dtPolyRef pathBuffer[32];
+        CHECK(navMeshQuery.findPath(startRef, endRef, startNavMeshPos, endNavMeshPos, &queryFilter, pathBuffer, &pathLen, size(pathBuffer)) == DT_SUCCESS);
+        REQUIRE(pathLen > 0);
+        CHECK(pathBuffer[0] == startRef);
+        CHECK(pathBuffer[pathLen - 1] == endRef);
+    }
+}
+
+TEST_CASE("FindPathOverSpiralStairsWithTileCache")
+{
+    using Catch::Matchers::WithinAbs;
+
+    dtNavMeshParams navMeshParams;
+    std::memset(navMeshParams.orig, 0, sizeof(navMeshParams.orig));
+    navMeshParams.tileWidth = tileSizeFloat;
+    navMeshParams.tileHeight = tileSizeFloat;
+    navMeshParams.maxTiles = 2048;
+    navMeshParams.maxPolys = 2048;
+
+    dtNavMesh navMesh;
+
+    REQUIRE(navMesh.init(&navMeshParams) == DT_SUCCESS);
+
+    dtTileCacheParams tileCacheParams;
+    std::memset(tileCacheParams.orig, 0, sizeof(tileCacheParams.orig));
+    tileCacheParams.cs = cellSize;
+    tileCacheParams.ch = cellHeight;
+    tileCacheParams.width = tileSize;
+    tileCacheParams.height = tileSize;
+    tileCacheParams.walkableHeight = walkableHeightFloat;
+    tileCacheParams.walkableRadius = walkableRadiusFloat;
+    tileCacheParams.walkableClimb = walkableClimbFloat;
+    tileCacheParams.maxSimplificationError = maxError;
+    tileCacheParams.maxTiles = 2048;
+    tileCacheParams.maxObstacles = 128;
+
+    dtTileCacheAlloc tileCacheAlloc;
+    TileCacheCompressor tileCacheCompressor;
+    TileCacheMeshProcess tileCacheMeshProcess;
+
+    dtTileCache tileCache;
+
+    REQUIRE(tileCache.init(&tileCacheParams, &tileCacheAlloc, &tileCacheCompressor, &tileCacheMeshProcess) == DT_SUCCESS);
+
+    rcContext context;
+
+    const Mesh mesh = generateSpiralStairs(offsetX, offsetY, offsetZ, radius, stepHeight, stepAngle, steps);
+
+    for (int i = 0; i < mesh.verts.size(); i += 3)
+        std::printf("v %f %f %f\n", mesh.verts[i], mesh.verts[i + 1], mesh.verts[i + 2]);
+
+    for (int i = 0; i < mesh.tris.size(); i += 3)
+        std::printf("f %d %d %d\n", mesh.tris[i] + 1, mesh.tris[i + 1] + 1, mesh.tris[i + 2] + 1);
+
+    const int vertCount = mesh.verts.size() / 3;
+    const int triCount = mesh.tris.size() / 3;
+
+    const float* startPos = &mesh.verts[1 * 3];
+    const float* endPos = &mesh.verts[mesh.verts.size() - 3];
+    constexpr float polyHalfExtents[3] = {2, 2, 2};
+
+    SECTION("Should build layered tile navmesh and find path")
+    {
+        addTiles(context, 0, 0, mesh.verts.data(), vertCount, mesh.tris.data(), triCount, tileCache, navMesh);
+
+        REQUIRE(tileCache.update(0, &navMesh) == DT_SUCCESS);
+
+        dtNavMeshQuery navMeshQuery;
+
+        REQUIRE(navMeshQuery.init(&navMesh, maxNodes) == DT_SUCCESS);
+
+        dtQueryFilter queryFilter;
+        queryFilter.setIncludeFlags(walkableFlag);
+        queryFilter.setAreaCost(RC_WALKABLE_AREA, 1);
+
+        float startNavMeshPos[3];
+        dtPolyRef startRef = 0;
+        REQUIRE(navMeshQuery.findNearestPoly(startPos, polyHalfExtents, &queryFilter, &startRef, startNavMeshPos) == DT_SUCCESS);
+        REQUIRE(startRef != 0);
+        CHECK_THAT(startNavMeshPos[0], WithinAbs(32.1f, 1e-3));
+        CHECK_THAT(startNavMeshPos[1], WithinAbs(0.2f, 1e-3));
+        CHECK_THAT(startNavMeshPos[2], WithinAbs(18.0f, 1e-3));
+
+        float endNavMeshPos[3];
+        dtPolyRef endRef = 0;
+        REQUIRE(navMeshQuery.findNearestPoly(endPos, polyHalfExtents, &queryFilter, &endRef, endNavMeshPos) == DT_SUCCESS);
+        REQUIRE(endRef != 0);
+        CHECK_THAT(endNavMeshPos[0], WithinAbs(32.1f, 1e-3));
+        CHECK_THAT(endNavMeshPos[1], WithinAbs(45.4f, 1e-3));
+        CHECK_THAT(endNavMeshPos[2], WithinAbs(16.2f, 1e-3));
+
+        int pathLen = 0;
+        dtPolyRef pathBuffer[32];
+        CHECK(navMeshQuery.findPath(startRef, endRef, startNavMeshPos, endNavMeshPos, &queryFilter, pathBuffer, &pathLen, size(pathBuffer)) == DT_SUCCESS);
+        REQUIRE(pathLen > 0);
         CHECK(pathBuffer[0] == startRef);
         CHECK(pathBuffer[pathLen - 1] == endRef);
     }

@@ -26,6 +26,6 @@ target_sources(Tests PRIVATE
 	Integration/Tests_FindPath.cpp
 )
 
-target_link_libraries(Tests PRIVATE Recast Detour DetourCrowd)
+target_link_libraries(Tests PRIVATE Recast Detour DetourCrowd DetourTileCache)
 
 add_test(NAME Tests COMMAND Tests)

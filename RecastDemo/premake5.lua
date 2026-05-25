@@ -195,9 +195,9 @@ project "Tests"
 	warnings "Default"
 	fatalwarnings { }
 
-	-- Catch requires RTTI and exceptions
+	-- Catch requires exceptions
 	exceptionhandling "On"
-	rtti "On"
+	rtti "Off"
 
 	includedirs {
 		"../DebugUtils/Include",
