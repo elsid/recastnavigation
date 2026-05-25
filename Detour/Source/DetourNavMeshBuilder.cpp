@@ -362,9 +362,12 @@ bool dtCreateNavMeshData(dtNavMeshCreateParams* params, unsigned char** outData,
 	const int totPolyCount = params->polyCount + storedOffMeshConCount;
 	const int totVertCount = params->vertCount + storedOffMeshConCount*2;
 	
-	// Find portal edges which are at tile borders.
+	// Find portal edges which are at tile borders, and height portal edges which connect to the
+	// tiles at the same position. The latter are budgeted separately because they are linked to
+	// one polygon per same position tile rather than to a bounded number of neighbours.
 	int edgeCount = 0;
 	int portalCount = 0;
+	int heightPortalCount = 0;
 	for (int i = 0; i < params->polyCount; ++i)
 	{
 		const unsigned short* p = &params->polys[i*2*nvp];
@@ -372,17 +375,20 @@ bool dtCreateNavMeshData(dtNavMeshCreateParams* params, unsigned char** outData,
 		{
 			if (p[j] == MESH_NULL_IDX) break;
 			edgeCount++;
-			
+
 			if (p[nvp+j] & 0x8000)
 			{
 				unsigned short dir = p[nvp+j] & 0xf;
-				if (dir != 0xf)
+				if (dir == 4)
+					heightPortalCount++;
+				else if (dir != 0xf)
 					portalCount++;
 			}
 		}
 	}
 
-	const int maxLinkCount = edgeCount + portalCount*2 + offMeshConLinkCount*2;
+	const int maxLinkCount = edgeCount + portalCount*2
+		+ heightPortalCount*DT_HEIGHT_PORTAL_LINKS_PER_EDGE + offMeshConLinkCount*2;
 	
 	// Find unique detail vertices.
 	int uniqueDetailVertCount = 0;
@@ -538,6 +544,8 @@ bool dtCreateNavMeshData(dtNavMeshCreateParams* params, unsigned char** outData,
 					p->neis[j] = DT_EXT_LINK | 0;
 				else if (dir == 3) // Portal z-
 					p->neis[j] = DT_EXT_LINK | 6;
+				else if (dir == 4) // Height portal (interior boundary, for layer connections)
+					p->neis[j] = DT_EXT_LINK | 0xfe;
 			}
 			else
 			{

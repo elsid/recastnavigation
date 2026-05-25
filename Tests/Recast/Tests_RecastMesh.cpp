@@ -28,7 +28,8 @@ struct RectContour
 	}
 };
 
-void addContour(const RectContour& rect, int y, unsigned short reg, unsigned char area, rcContour& cont)
+// The contour sits at height y along z == minZ and at yMaxZ along z == maxZ.
+void addContour(const RectContour& rect, int y, int yMaxZ, unsigned short reg, unsigned char area, rcContour& cont)
 {
 	cont.nverts = 4;
 	cont.verts = (int*)rcAlloc(sizeof(int) * 4 * cont.nverts, RC_ALLOC_PERM);
@@ -38,7 +39,7 @@ void addContour(const RectContour& rect, int y, unsigned short reg, unsigned cha
 	for (int i = 0; i < 4; ++i)
 	{
 		cont.verts[i * 4 + 0] = xz[i][0];
-		cont.verts[i * 4 + 1] = y;
+		cont.verts[i * 4 + 1] = xz[i][1] == rect.minZ ? y : yMaxZ;
 		cont.verts[i * 4 + 2] = xz[i][1];
 		cont.verts[i * 4 + 3] = 0;
 	}
@@ -56,13 +57,14 @@ constexpr int slabHeight = 100;
 
 // Builds a contour set covering [0, width] x [0, height] cells with a single rectangular contour
 // at the given height in cells.
-void makeContourSet(const RectContour& rect, int y, int width, int height, int borderSize, rcContourSet& cset)
+void makeContourSet(const RectContour& rect, int y, int width, int height, int borderSize, rcContourSet& cset,
+	int yMaxZ = -1)
 {
 	cset.conts = (rcContour*)rcAlloc(sizeof(rcContour), RC_ALLOC_PERM);
 	REQUIRE(cset.conts != nullptr);
 	std::memset(cset.conts, 0, sizeof(rcContour));
 	cset.nconts = 1;
-	addContour(rect, y, 1, RC_WALKABLE_AREA, cset.conts[0]);
+	addContour(rect, y, yMaxZ < 0 ? y : yMaxZ, 1, RC_WALKABLE_AREA, cset.conts[0]);
 	cset.cs = 0.1f;
 	cset.ch = 0.1f;
 	cset.bmin[0] = 0;
@@ -74,6 +76,8 @@ void makeContourSet(const RectContour& rect, int y, int width, int height, int b
 	cset.width = width;
 	cset.height = height;
 	cset.borderSize = borderSize;
+	cset.walkableHeight = walkableHeight;
+	cset.walkableClimb = walkableClimb;
 	cset.maxError = 1.3f;
 }
 
@@ -148,10 +152,32 @@ constexpr unsigned short portalXMin = 0x8000 | 0;
 constexpr unsigned short portalZMax = 0x8000 | 1;
 constexpr unsigned short portalXMax = 0x8000 | 2;
 constexpr unsigned short portalZMin = 0x8000 | 3;
+constexpr unsigned short heightPortal = 0x8000 | 4;
 
 }
 
-TEST_CASE("rcBuildContours grows the upper vertical bound by the walkable height", "[recast]")
+TEST_CASE("rcContourSet is constructed with zeroed walkable dimensions", "[recast]")
+{
+	// rcBuildPolyMesh reads these to locate the vertical bounds of the source heightfield, so a
+	// hand built contour set must not start out with garbage in them.
+	SECTION("on the stack")
+	{
+		rcContourSet cset;
+		CHECK(cset.walkableHeight == 0);
+		CHECK(cset.walkableClimb == 0);
+	}
+
+	SECTION("through rcAllocContourSet")
+	{
+		rcContourSet* const cset = rcAllocContourSet();
+		REQUIRE(cset != nullptr);
+		CHECK(cset->walkableHeight == 0);
+		CHECK(cset->walkableClimb == 0);
+		rcFreeContourSet(cset);
+	}
+}
+
+TEST_CASE("rcBuildContours copies the walkable dimensions of the compact heightfield", "[recast]")
 {
 	rcContext context;
 
@@ -183,9 +209,11 @@ TEST_CASE("rcBuildContours grows the upper vertical bound by the walkable height
 	REQUIRE(rcBuildContours(&context, compact, 1.3f, 12, cset));
 	REQUIRE(cset.nconts > 0);
 
-	// rcBuildCompactHeightfield raises the upper bound by walkableHeight and rcBuildContours
-	// passes both bounds through, so the vertical extent of the source heightfield is recoverable
-	// from the contour set.
+	CHECK(cset.walkableHeight == walkableHeight);
+	CHECK(cset.walkableClimb == walkableClimb);
+
+	// The invariant rcBuildPolyMesh relies on to recover the vertical bounds of the heightfield:
+	// the lower one is passed through, the upper one is grown by walkableHeight.
 	CHECK(cset.bmin[1] == Catch::Approx(bmin[1]));
 	CHECK(cset.bmax[1] == Catch::Approx(bmax[1] + walkableHeight * ch));
 }
@@ -208,12 +236,13 @@ TEST_CASE("rcBuildPolyMesh marks edges lying on a tile boundary with the matchin
 	CHECK(getEdgeNei(mesh, 0, 20, 0, 0, 0) == (0x8000 | 3));
 }
 
-TEST_CASE("rcBuildPolyMesh leaves interior boundary edges unmarked", "[recast]")
+TEST_CASE("rcBuildPolyMesh does not mark solid wall edges as height portals", "[recast]")
 {
 	rcContext context;
 	rcContourSet cset;
-	// The contour lies strictly inside the tile, so none of its edges is on a tile boundary and
-	// none of them gets a portal direction: they are all solid walls.
+	// The contour is strictly inside the tile and far from both vertical bounds of the source
+	// heightfield, so none of its edges lies on a tile boundary and none of them can be a cut
+	// made by the clipping: they are all solid walls.
 	makeContourSet(RectContour{5, 5, 15, 15}, slabHeight / 2, 20, 20, 4, cset);
 
 	rcPolyMesh mesh;
@@ -228,13 +257,60 @@ TEST_CASE("rcBuildPolyMesh leaves interior boundary edges unmarked", "[recast]")
 	}
 }
 
-TEST_CASE("rcBuildPolyMesh marks no portal edges at all without a border", "[recast]")
+TEST_CASE("rcBuildPolyMesh marks interior edges at a vertical tile bound as height portals", "[recast]")
 {
-	// Without a border there is no neighbouring tile to connect to, so even a contour filling the
-	// whole tile gets no portal directions.
+	// The surface sits right against one of the vertical bounds of the source heightfield, so it
+	// continues in the tile of the layer on the other side of that bound.
+	const int y = GENERATE(0, walkableClimb, slabHeight - walkableClimb, slabHeight);
+	CAPTURE(y);
+
 	rcContext context;
 	rcContourSet cset;
-	makeContourSet(RectContour{0, 0, 20, 20}, slabHeight / 2, 20, 20, 0, cset);
+	makeContourSet(RectContour{5, 5, 15, 15}, y, 20, 20, 4, cset);
+
+	rcPolyMesh mesh;
+	REQUIRE(rcBuildPolyMesh(&context, cset, 4, mesh));
+	REQUIRE(mesh.npolys == 1);
+	REQUIRE(mesh.nverts == 4);
+
+	for (int j = 0; j < 4; ++j)
+	{
+		INFO("edge " << j);
+		CHECK(mesh.polys[mesh.nvp + j] == heightPortal);
+	}
+}
+
+TEST_CASE("rcBuildPolyMesh does not mark interior edges past the vertical tile bound tolerance", "[recast]")
+{
+	// One cell further from the bound than walkableClimb, which is where the tolerance ends.
+	const int y = GENERATE(walkableClimb + 1, slabHeight - walkableClimb - 1);
+	CAPTURE(y);
+
+	rcContext context;
+	rcContourSet cset;
+	makeContourSet(RectContour{5, 5, 15, 15}, y, 20, 20, 4, cset);
+
+	rcPolyMesh mesh;
+	REQUIRE(rcBuildPolyMesh(&context, cset, 4, mesh));
+	REQUIRE(mesh.npolys == 1);
+
+	for (int j = 0; j < 4; ++j)
+	{
+		INFO("edge " << j);
+		CHECK(mesh.polys[mesh.nvp + j] == RC_MESH_NULL_IDX);
+	}
+}
+
+TEST_CASE("rcBuildPolyMesh marks no portal edges at all without a border", "[recast]")
+{
+	// Without a border there is no neighbouring tile to connect to, in any direction. The height
+	// portal marking lives inside that same guard, so it must be off here too.
+	const int y = GENERATE(0, slabHeight / 2, slabHeight);
+	CAPTURE(y);
+
+	rcContext context;
+	rcContourSet cset;
+	makeContourSet(RectContour{5, 5, 15, 15}, y, 20, 20, 0, cset);
 
 	rcPolyMesh mesh;
 	REQUIRE(rcBuildPolyMesh(&context, cset, 4, mesh));
@@ -285,3 +361,85 @@ TEST_CASE("rcMergePolyMeshes keeps a tile boundary portal only on the matching m
 	}
 }
 
+TEST_CASE("rcMergePolyMeshes keeps height portal marks", "[recast]")
+{
+	rcContext context;
+
+	// Two neighbouring tiles, each holding one polygon whose x- edge is a height portal.
+	const unsigned short neis[4] = {heightPortal, RC_MESH_NULL_IDX, RC_MESH_NULL_IDX, RC_MESH_NULL_IDX};
+
+	rcPolyMesh first;
+	makePolyMesh(RectContour{5, 5, 15, 15}, neis, 0.0f, 0.0f, 0.1f, 20, 20, first);
+
+	REQUIRE(first.polys[first.nvp + 0] == heightPortal);
+
+	rcPolyMesh second;
+	makePolyMesh(RectContour{5, 5, 15, 15}, neis, 2.0f, 0.0f, 0.1f, 20, 20, second);
+
+	rcPolyMesh* meshes[2] = {&first, &second};
+	rcPolyMesh merged;
+	REQUIRE(rcMergePolyMeshes(&context, meshes, 2, merged));
+	REQUIRE(merged.npolys == 2);
+
+	CHECK(merged.polys[0 * 2 * merged.nvp + merged.nvp + 0] == heightPortal);
+	CHECK(merged.polys[1 * 2 * merged.nvp + merged.nvp + 0] == heightPortal);
+}
+
+TEST_CASE("rcMergePolyMeshes keeps a height portal mark inside the merged mesh", "[recast]")
+{
+	rcContext context;
+
+	// A three by three block, so that the middle tile lies on no boundary of the merged mesh at
+	// all. Its tile boundary portals are resolved away by the merge, but a height portal connects
+	// to a tile at the same position rather than to a neighbour, so merging cannot resolve it and
+	// it has to survive.
+	const unsigned short neis[4] = {heightPortal, portalZMax, portalXMax, portalZMin};
+
+	rcPolyMesh meshes[9];
+	rcPolyMesh* pointers[9];
+	int middle = -1;
+	for (int z = 0; z < 3; ++z)
+	{
+		for (int x = 0; x < 3; ++x)
+		{
+			const int i = z * 3 + x;
+			makePolyMesh(RectContour{5, 5, 15, 15}, neis, x * 2.0f, z * 2.0f, 0.1f, 20, 20, meshes[i]);
+			pointers[i] = &meshes[i];
+			if (x == 1 && z == 1)
+				middle = i;
+		}
+	}
+	REQUIRE(middle >= 0);
+
+	rcPolyMesh merged;
+	REQUIRE(rcMergePolyMeshes(&context, pointers, 9, merged));
+	REQUIRE(merged.npolys == 9);
+
+	// rcMergePolyMeshes appends the polygons in the order the meshes are given.
+	const unsigned short* const poly = &merged.polys[middle * 2 * merged.nvp];
+	CHECK(poly[merged.nvp + 0] == heightPortal);
+	CHECK(poly[merged.nvp + 1] == RC_MESH_NULL_IDX);
+	CHECK(poly[merged.nvp + 2] == RC_MESH_NULL_IDX);
+	CHECK(poly[merged.nvp + 3] == RC_MESH_NULL_IDX);
+}
+
+TEST_CASE("rcBuildPolyMesh needs both ends of an interior edge at a vertical tile bound", "[recast]")
+{
+	rcContext context;
+	rcContourSet cset;
+	// The surface rises steeply away from the lower bound of the source heightfield: its z- edge
+	// lies on that bound, its z+ edge is far above it, and the two edges joining them have one end
+	// at each. Only an edge that lies along the bound is a cut made by the clipping; one that just
+	// touches it is an ordinary wall running away from it.
+	makeContourSet(RectContour{5, 5, 15, 15}, 0, 20, 20, 4, cset, slabHeight / 2);
+
+	rcPolyMesh mesh;
+	REQUIRE(rcBuildPolyMesh(&context, cset, 4, mesh));
+	REQUIRE(mesh.npolys == 1);
+	REQUIRE(mesh.nverts == 4);
+
+	CHECK(getEdgeNei(mesh, 0, 15, 5, 5, 5) == heightPortal);       // z-, both ends on the bound
+	CHECK(getEdgeNei(mesh, 0, 5, 15, 15, 15) == RC_MESH_NULL_IDX); // z+, both ends far above
+	CHECK(getEdgeNei(mesh, 0, 5, 5, 5, 15) == RC_MESH_NULL_IDX);   // x-, one end on the bound
+	CHECK(getEdgeNei(mesh, 0, 15, 15, 15, 5) == RC_MESH_NULL_IDX); // x+, one end on the bound
+}

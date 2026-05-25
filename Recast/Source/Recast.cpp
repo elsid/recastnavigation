@@ -205,6 +205,8 @@ rcContourSet::rcContourSet()
 , width()
 , height()
 , borderSize()
+, walkableHeight()
+, walkableClimb()
 , maxError()
 {
 }

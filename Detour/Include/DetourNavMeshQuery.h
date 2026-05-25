@@ -532,11 +532,16 @@ private:
 							 const dtQueryFilter* filter, dtPolyQuery* query) const;
 
 	/// Returns portal points between two polygons.
+	/// Two polygons can be connected over more than one edge, in which case @p hintStart and
+	/// @p hintEnd, when given, select the portal closest to that segment instead of an arbitrary
+	/// one.
 	dtStatus getPortalPoints(dtPolyRef from, dtPolyRef to, float* left, float* right,
-							 unsigned char& fromType, unsigned char& toType) const;
+							 unsigned char& fromType, unsigned char& toType,
+							 const float* hintStart = 0, const float* hintEnd = 0) const;
 	dtStatus getPortalPoints(dtPolyRef from, const dtPoly* fromPoly, const dtMeshTile* fromTile,
 							 dtPolyRef to, const dtPoly* toPoly, const dtMeshTile* toTile,
-							 float* left, float* right) const;
+							 float* left, float* right,
+							 const float* hintStart = 0, const float* hintEnd = 0) const;
 	
 	/// Returns edge mid point between two polygons.
 	dtStatus getEdgeMidPoint(dtPolyRef from, dtPolyRef to, float* mid) const;

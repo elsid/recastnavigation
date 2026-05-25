@@ -406,14 +406,23 @@ void dtNavMesh::connectExtLinks(dtMeshTile* tile, dtMeshTile* target, int side)
 			// Skip non-portal edges.
 			if ((poly->neis[j] & DT_EXT_LINK) == 0)
 				continue;
-			
+
 			const int dir = (int)(poly->neis[j] & 0xff);
 			if (side != -1 && dir != side)
 				continue;
-			
+
 			// Create new links
 			const float* va = &tile->verts[poly->verts[j]*3];
 			const float* vb = &tile->verts[poly->verts[(j+1) % nv]*3];
+
+			// Height portal: the edge is an interior boundary produced by height layer clipping,
+			// so it connects to the polygons of the same position tile that back it.
+			if (side == -1 && dir == 0xfe)
+			{
+				connectHeightPortal(tile, target, poly, j, va, vb);
+				continue;
+			}
+
 			dtPolyRef nei[4];
 			float neia[4*2];
 			int nnei = findConnectingPolys(va,vb, target, dtOppositeTile(dir), nei,neia,4);
@@ -452,6 +461,67 @@ void dtNavMesh::connectExtLinks(dtMeshTile* tile, dtMeshTile* target, int side)
 				}
 			}
 		}
+	}
+}
+
+void dtNavMesh::connectHeightPortal(dtMeshTile* tile, const dtMeshTile* target, dtPoly* poly, int edge,
+									const float* va, const float* vb)
+{
+	const float walkableClimb = tile->header->walkableClimb;
+
+	// Collect the polygons of the target tile which may back the edge.
+	float qmin[3], qmax[3];
+	dtVcopy(qmin, va);
+	dtVmin(qmin, vb);
+	dtVcopy(qmax, va);
+	dtVmax(qmax, vb);
+	qmin[1] -= walkableClimb;
+	qmax[1] += walkableClimb;
+
+	static const int MAX_POLYS = 128;
+	dtPolyRef polys[MAX_POLYS];
+	const int npolys = queryPolygonsInTile(target, qmin, qmax, polys, MAX_POLYS);
+
+	for (int i = 0; i < npolys; ++i)
+	{
+		const dtPoly* const targetPoly = &target->polys[decodePolyIdPoly(polys[i])];
+		if (targetPoly->getType() == DT_POLYTYPE_OFFMESH_CONNECTION)
+			continue;
+
+		// The part of the edge covered by the polygon in the xz plane.
+		float verts[DT_VERTS_PER_POLYGON*3];
+		const int nv = (int)targetPoly->vertCount;
+		for (int k = 0; k < nv; ++k)
+			dtVcopy(&verts[k*3], &target->verts[targetPoly->verts[k]*3]);
+
+		float tmin, tmax;
+		int segMin, segMax;
+		if (!dtIntersectSegmentPoly2D(va, vb, verts, nv, tmin, tmax, segMin, segMax))
+			continue;
+
+		// Anything shorter than a single link interval step cannot be expressed as a link.
+		if (tmax - tmin < 1.0f/255.0f)
+			continue;
+
+		// The polygon has to be within climbing distance over that part of the edge.
+		float pos[3];
+		dtVlerp(pos, va, vb, (tmin + tmax)*0.5f);
+		float h;
+		if (!getPolyHeight(target, targetPoly, pos, &h) || dtAbs(h - pos[1]) > walkableClimb)
+			continue;
+
+		const unsigned int idx = allocLink(tile);
+		if (idx == DT_NULL_LINK)
+			return;
+
+		dtLink* const link = &tile->links[idx];
+		link->ref = polys[i];
+		link->edge = (unsigned char)edge;
+		link->side = 0xfe;
+		link->bmin = (unsigned char)roundf(tmin*255.0f);
+		link->bmax = (unsigned char)roundf(tmax*255.0f);
+		link->next = poly->firstLink;
+		poly->firstLink = idx;
 	}
 }
 
@@ -1026,20 +1096,8 @@ dtStatus dtNavMesh::addTile(unsigned char* data, int dataSize, int flags,
 	dtMeshTile* neis[MAX_NEIS];
 	int nneis;
 	
-	// Connect with layers in current tile.
-	nneis = getTilesAt(header->x, header->y, neis, MAX_NEIS);
-	for (int j = 0; j < nneis; ++j)
-	{
-		if (neis[j] == tile)
-			continue;
-	
-		connectExtLinks(tile, neis[j], -1);
-		connectExtLinks(neis[j], tile, -1);
-		connectExtOffMeshLinks(tile, neis[j], -1);
-		connectExtOffMeshLinks(neis[j], tile, -1);
-	}
-	
-	// Connect with neighbour tiles.
+	// Connect with neighbour tiles. Done before connecting the layers of the current tile so that
+	// the unbounded number of layer links can never starve the link pool of these.
 	for (int i = 0; i < 8; ++i)
 	{
 		nneis = getNeighbourTilesAt(header->x, header->y, i, neis, MAX_NEIS);
@@ -1051,7 +1109,20 @@ dtStatus dtNavMesh::addTile(unsigned char* data, int dataSize, int flags,
 			connectExtOffMeshLinks(neis[j], tile, dtOppositeTile(i));
 		}
 	}
-	
+
+	// Connect with layers in current tile.
+	nneis = getTilesAt(header->x, header->y, neis, MAX_NEIS);
+	for (int j = 0; j < nneis; ++j)
+	{
+		if (neis[j] == tile)
+			continue;
+
+		connectExtLinks(tile, neis[j], -1);
+		connectExtLinks(neis[j], tile, -1);
+		connectExtOffMeshLinks(tile, neis[j], -1);
+		connectExtOffMeshLinks(neis[j], tile, -1);
+	}
+
 	if (result)
 		*result = getTileRef(tile);
 	

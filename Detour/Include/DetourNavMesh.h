@@ -60,6 +60,13 @@ typedef unsigned int dtTileRef;
 /// @ingroup detour
 static const int DT_VERTS_PER_POLYGON = 6;
 
+/// The number of links reserved for each height portal edge of a polygon.
+/// A height portal edge is linked to every polygon of every same position layer tile that backs
+/// it. How many that is only becomes known once those tiles are added, so this is a budget rather
+/// than a limit: links that do not fit are dropped.
+/// @ingroup detour
+static const int DT_HEIGHT_PORTAL_LINKS_PER_EDGE = 4;
+
 /// @{
 /// @name Tile Serialization Constants
 /// These constants are used to detect whether a navigation tile's data
@@ -636,6 +643,9 @@ private:
 
 	/// Builds external polygon links for a tile.
 	void connectExtLinks(dtMeshTile* tile, dtMeshTile* target, int side);
+	/// Links a height portal edge to every polygon of a same position layer tile backing it.
+	void connectHeightPortal(dtMeshTile* tile, const dtMeshTile* target, dtPoly* poly, int edge,
+							 const float* va, const float* vb);
 	/// Builds external polygon links for a tile.
 	void connectExtOffMeshLinks(dtMeshTile* tile, dtMeshTile* target, int side);
 	

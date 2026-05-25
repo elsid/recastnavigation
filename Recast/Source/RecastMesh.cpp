@@ -1249,6 +1249,18 @@ bool rcBuildPolyMesh(rcContext* ctx, const rcContourSet& cset, const int nvp, rc
 	{
 		const int w = cset.width;
 		const int h = cset.height;
+		// Surfaces reaching past the vertical bounds of the source heightfield were clipped away
+		// when it was rasterized, so an interior boundary edge close to either bound may be such a
+		// cut rather than a solid wall, and continue in the tile at the layer above or below.
+		// rcBuildCompactHeightfield grew the upper bound by walkableHeight, hence the correction.
+		// A cut does not land exactly on the bound: erosion and the slope of the surface push it
+		// inwards by a few cells, so edges within a tolerance of it are taken to be cuts too.
+		// walkableClimb is used as that tolerance because it is the scale over which the two sides
+		// of a cut can still be linked. Marking an edge that is in fact a solid wall is harmless
+		// beyond the wasted link budget: connectHeightPortal only links an edge to a polygon that
+		// really overlaps it.
+		const int top = (int)((cset.bmax[1] - cset.bmin[1]) / cset.ch) - cset.walkableHeight;
+		const int tolerance = cset.walkableClimb;
 		for (int i = 0; i < mesh.npolys; ++i)
 		{
 			unsigned short* p = &mesh.polys[i*2*nvp];
@@ -1271,6 +1283,9 @@ bool rcBuildPolyMesh(rcContext* ctx, const rcContourSet& cset, const int nvp, rc
 					p[nvp+j] = 0x8000 | 2;
 				else if ((int)va[2] == 0 && (int)vb[2] == 0)
 					p[nvp+j] = 0x8000 | 3;
+				else if (((int)va[1] <= tolerance && (int)vb[1] <= tolerance)
+					|| ((int)va[1] >= top - tolerance && (int)vb[1] >= top - tolerance))
+					p[nvp+j] = 0x8000 | 4; // Height portal (clipped by the vertical tile bounds)
 			}
 		}
 	}
@@ -1424,33 +1439,44 @@ bool rcMergePolyMeshes(rcContext* ctx, rcPolyMesh** meshes, const int nmeshes, r
 				tgt[k] = vremap[src[k]];
 			}
 
-			if (isOnBorder)
+			for (int k = mesh.nvp; k < mesh.nvp * 2; ++k)
 			{
-				for (int k = mesh.nvp; k < mesh.nvp * 2; ++k)
+				if (!(src[k] & 0x8000) || src[k] == 0xffff)
+					continue;
+
+				unsigned short dir = src[k] & 0xf;
+
+				// Height portals connect to a tile at the same position rather than to a
+				// neighbouring one, so merging never resolves them and they are always kept.
+				if (dir == 4)
 				{
-					if (src[k] & 0x8000 && src[k] != 0xffff)
-					{
-						unsigned short dir = src[k] & 0xf;
-						switch (dir)
-						{
-							case 0: // Portal x-
-								if (isMinX)
-									tgt[k] = src[k];
-								break;
-							case 1: // Portal z+
-								if (isMaxZ)
-									tgt[k] = src[k];
-								break;
-							case 2: // Portal x+
-								if (isMaxX)
-									tgt[k] = src[k];
-								break;
-							case 3: // Portal z-
-								if (isMinZ)
-									tgt[k] = src[k];
-								break;
-						}
-					}
+					tgt[k] = src[k];
+					continue;
+				}
+
+				// A tile boundary portal only stays one if it is still on the boundary of the
+				// merged mesh, otherwise the edge is resolved by buildMeshAdjacency below.
+				if (!isOnBorder)
+					continue;
+
+				switch (dir)
+				{
+					case 0: // Portal x-
+						if (isMinX)
+							tgt[k] = src[k];
+						break;
+					case 1: // Portal z+
+						if (isMaxZ)
+							tgt[k] = src[k];
+						break;
+					case 2: // Portal x+
+						if (isMaxX)
+							tgt[k] = src[k];
+						break;
+					case 3: // Portal z-
+						if (isMinZ)
+							tgt[k] = src[k];
+						break;
 				}
 			}
 		}

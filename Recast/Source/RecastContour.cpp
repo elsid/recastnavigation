@@ -839,6 +839,8 @@ bool rcBuildContours(rcContext* ctx, const rcCompactHeightfield& chf,
 	cset.width = chf.width - chf.borderSize*2;
 	cset.height = chf.height - chf.borderSize*2;
 	cset.borderSize = chf.borderSize;
+	cset.walkableHeight = chf.walkableHeight;
+	cset.walkableClimb = chf.walkableClimb;
 	cset.maxError = maxError;
 	
 	int maxContours = rcMax((int)chf.maxRegions, 8);

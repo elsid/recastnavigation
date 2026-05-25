@@ -443,6 +443,8 @@ struct rcContourSet
 	int width;			///< The width of the set. (Along the x-axis in cell units.) 
 	int height;			///< The height of the set. (Along the z-axis in cell units.) 
 	int borderSize;		///< The AABB border size used to generate the source data from which the contours were derived.
+	int walkableHeight;	///< The walkable height used to generate the source data. (See: rcConfig::walkableHeight)
+	int walkableClimb;	///< The walkable climb used to generate the source data. (See: rcConfig::walkableClimb)
 	float maxError;		///< The max edge error that this contour set was simplified with.
 	
 private:

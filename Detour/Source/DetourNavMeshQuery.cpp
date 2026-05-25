@@ -1853,8 +1853,10 @@ dtStatus dtNavMeshQuery::findStraightPath(const float* startPos, const float* en
 			{
 				unsigned char fromType; // fromType is ignored.
 
-				// Next portal.
-				if (dtStatusFailed(getPortalPoints(path[i], path[i+1], left, right, fromType, toType)))
+				// Next portal. The segment the funnel is currently trying to walk picks the
+				// portal when the two polygons are connected over more than one edge.
+				if (dtStatusFailed(getPortalPoints(path[i], path[i+1], left, right, fromType, toType,
+												   portalApex, closestEndPos)))
 				{
 					// Failed to get portal points, in practice this means that path[i+1] is invalid polygon.
 					// Clamp the end point to path[i], and return the path so far.
@@ -2246,7 +2248,8 @@ dtStatus dtNavMeshQuery::moveAlongSurface(dtPolyRef startRef, const float* start
 
 
 dtStatus dtNavMeshQuery::getPortalPoints(dtPolyRef from, dtPolyRef to, float* left, float* right,
-										 unsigned char& fromType, unsigned char& toType) const
+										 unsigned char& fromType, unsigned char& toType,
+										 const float* hintStart, const float* hintEnd) const
 {
 	dtAssert(m_nav);
 	
@@ -2262,22 +2265,44 @@ dtStatus dtNavMeshQuery::getPortalPoints(dtPolyRef from, dtPolyRef to, float* le
 		return DT_FAILURE | DT_INVALID_PARAM;
 	toType = toPoly->getType();
 		
-	return getPortalPoints(from, fromPoly, fromTile, to, toPoly, toTile, left, right);
+	return getPortalPoints(from, fromPoly, fromTile, to, toPoly, toTile, left, right, hintStart, hintEnd);
 }
 
 // Returns portal points between two polygons.
 dtStatus dtNavMeshQuery::getPortalPoints(dtPolyRef from, const dtPoly* fromPoly, const dtMeshTile* fromTile,
 										 dtPolyRef to, const dtPoly* toPoly, const dtMeshTile* toTile,
-										 float* left, float* right) const
+										 float* left, float* right,
+										 const float* hintStart, const float* hintEnd) const
 {
-	// Find the link that points to the 'to' polygon.
+	// Find the link that points to the 'to' polygon. Layered tiles can be connected over more
+	// than one edge of the same polygon, so when a hint segment is given the portal closest to it
+	// is picked instead of whichever one happens to come first.
+	const bool useHint = hintStart != 0 && hintEnd != 0
+		&& fromPoly->getType() != DT_POLYTYPE_OFFMESH_CONNECTION;
 	const dtLink* link = 0;
+	float nearestDistSqr = FLT_MAX;
 	for (unsigned int i = fromPoly->firstLink; i != DT_NULL_LINK; i = fromTile->links[i].next)
 	{
-		if (fromTile->links[i].ref == to)
+		const dtLink* const candidate = &fromTile->links[i];
+		if (candidate->ref != to)
+			continue;
+
+		if (!useHint)
 		{
-			link = &fromTile->links[i];
+			link = candidate;
 			break;
+		}
+
+		const int v0 = fromPoly->verts[candidate->edge];
+		const int v1 = fromPoly->verts[(candidate->edge+1) % (int)fromPoly->vertCount];
+		float mid[3];
+		dtVlerp(mid, &fromTile->verts[v0*3], &fromTile->verts[v1*3], 0.5f);
+		float t;
+		const float distSqr = dtDistancePtSegSqr2D(mid, hintStart, hintEnd, t);
+		if (distSqr < nearestDistSqr)
+		{
+			nearestDistSqr = distSqr;
+			link = candidate;
 		}
 	}
 	if (!link)
@@ -2602,7 +2627,22 @@ dtStatus dtNavMeshQuery::raycast(dtPolyRef startRef, const float* startPos, cons
 			const float* right = &tile->verts[v1*3];
 			
 			// Check that the intersection lies inside the link portal.
-			if (link->side == 0 || link->side == 4)
+			if (link->side == 0xfe)
+			{
+				// A height portal edge has no fixed orientation, so the crossing is projected
+				// onto the edge instead of onto one of the axes.
+				const float s = 1.0f/255.0f;
+				float p[3];
+				dtVlerp(p, startPos, endPos, tmax);
+				float t;
+				dtDistancePtSegSqr2D(p, left, right, t);
+				if (t >= link->bmin*s && t <= link->bmax*s)
+				{
+					nextRef = link->ref;
+					break;
+				}
+			}
+			else if (link->side == 0 || link->side == 4)
 			{
 				// Calculate link size.
 				const float s = 1.0f/255.0f;

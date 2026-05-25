@@ -55,6 +55,16 @@ float maxXyBounds(int value)
     return static_cast<float>((value + 1) * tileSize + borderSize) * cellSize;
 }
 
+float minLayerBounds(int value)
+{
+    return static_cast<float>(value * tileSize - borderSize) * cellHeight;
+}
+
+float maxLayerBounds(int value)
+{
+    return static_cast<float>((value + 1) * tileSize + borderSize) * cellHeight;
+}
+
 unsigned short getFlag(unsigned char area)
 {
     if (area == RC_WALKABLE_AREA)
@@ -102,6 +112,9 @@ void addTile(rcContext& context, int x, int y, int layer, const float* verts, co
     rcCompactHeightfield compact;
     REQUIRE(rcBuildCompactHeightfield(&context, walkableHeight, walkableClimb, solid, compact));
     REQUIRE(rcErodeWalkableArea(&context, walkableRadius, compact));
+
+    rcHeightfieldLayerSet heightfieldLayerdSet;
+    REQUIRE(rcBuildHeightfieldLayers(&context, compact, borderSize, walkableHeight, heightfieldLayerdSet));
 
     REQUIRE(rcBuildDistanceField(&context, compact));
     REQUIRE(rcBuildRegions(&context, compact, borderSize, minRegionArea, mergeRegionArea));
@@ -197,6 +210,23 @@ void addTile2d(rcContext& context, int x, int y, const float* verts, const int v
     };
 
     addTile(context, x, y, 0, verts, vertCount, tris, triCount, minBounds, maxBounds, navMesh);
+}
+
+void addTile3d(rcContext& context, int x, int y, int layer, const float* verts, const int vertCount, const int* tris, const int triCount, dtNavMesh& navMesh)
+{
+    const float minBounds[3] = {
+        minXyBounds(x),
+        minLayerBounds(layer),
+        minXyBounds(y),
+    };
+
+    const float maxBounds[3] = {
+        maxXyBounds(x),
+        maxLayerBounds(layer),
+        maxXyBounds(y),
+    };
+
+    addTile(context, x, y, layer, verts, vertCount, tris, triCount, minBounds, maxBounds, navMesh);
 }
 
 struct Mesh
@@ -316,4 +346,40 @@ TEST_CASE("FindPathOverSpiralStairsWithNavMesh")
         CHECK(pathBuffer[pathLen - 1] == endRef);
     }
 
+    SECTION("Should build 2 layered tiles navmesh and find path")
+    {
+        addTile3d(context, 0, 0, 0, mesh.verts.data(), vertCount, mesh.tris.data(), triCount, navMesh);
+        addTile3d(context, 0, 0, 1, mesh.verts.data(), vertCount, mesh.tris.data(), triCount, navMesh);
+
+        dtNavMeshQuery navMeshQuery;
+
+        REQUIRE(navMeshQuery.init(&navMesh, maxNodes) == DT_SUCCESS);
+
+        dtQueryFilter queryFilter;
+        queryFilter.setIncludeFlags(walkableFlag);
+        queryFilter.setAreaCost(RC_WALKABLE_AREA, 1);
+
+        float startNavMeshPos[3];
+        dtPolyRef startRef = 0;
+        REQUIRE(navMeshQuery.findNearestPoly(startPos, polyHalfExtents, &queryFilter, &startRef, startNavMeshPos) == DT_SUCCESS);
+        REQUIRE(startRef != 0);
+        CHECK_THAT(startNavMeshPos[0], WithinAbs(32.1f, 1e-3));
+        CHECK_THAT(startNavMeshPos[1], WithinAbs(0.2f, 1e-3));
+        CHECK_THAT(startNavMeshPos[2], WithinAbs(18.0f, 1e-3));
+
+        float endNavMeshPos[3];
+        dtPolyRef endRef = 0;
+        REQUIRE(navMeshQuery.findNearestPoly(endPos, polyHalfExtents, &queryFilter, &endRef, endNavMeshPos) == DT_SUCCESS);
+        REQUIRE(endRef != 0);
+        CHECK_THAT(endNavMeshPos[0], WithinAbs(32.1f, 1e-3));
+        CHECK_THAT(endNavMeshPos[1], WithinAbs(45.4f, 1e-3));
+        CHECK_THAT(endNavMeshPos[2], WithinAbs(16.5f, 1e-3));
+
+        int pathLen = 0;
+        dtPolyRef pathBuffer[32];
+        CHECK(navMeshQuery.findPath(startRef, endRef, startNavMeshPos, endNavMeshPos, &queryFilter, pathBuffer, &pathLen, size(pathBuffer)) == DT_SUCCESS);
+        REQUIRE(pathLen > 0);
+        CHECK(pathBuffer[0] == startRef);
+        CHECK(pathBuffer[pathLen - 1] == endRef);
+    }
 }
