@@ -525,6 +525,55 @@ void dtNavMesh::connectExtOffMeshLinks(dtMeshTile* tile, dtMeshTile* target, int
 
 }
 
+void dtNavMesh::connectLayerLinks(const dtMeshTile* target, dtMeshTile* tile)
+{
+	if (tile == 0 || target == 0)
+		return;
+
+	const float walkableClimb = tile->header->walkableClimb;
+	const float walkableRadius = tile->header->walkableRadius;
+	const float halfExtents[3] = { walkableRadius, walkableClimb + walkableRadius, walkableRadius };
+
+	for (int i = 0; i < tile->header->polyCount; ++i)
+	{
+		dtPoly& poly = tile->polys[i];
+		if (poly.getType() != DT_POLYTYPE_GROUND)
+			continue;
+
+		float center[3];
+		dtCalcPolyCenter(center, poly.verts, poly.vertCount, tile->verts);
+
+		float nearestPt[3];
+		const dtPolyRef nearRef = findNearestPolyInTile(target, center, halfExtents, nearestPt);
+		if (nearRef == 0)
+			continue;
+
+		// Only connect if the target polygon contains the source centroid in xz
+		// (nearest point is directly below/above, not at an edge).
+		const float dxz = dtSqr(nearestPt[0] - center[0]) + dtSqr(nearestPt[2] - center[2]);
+		const float eps = 1e-6f;
+		if (dxz > eps)
+			continue;
+
+		// Only connect if height difference is within walkable climb.
+		if (dtAbs(nearestPt[1] - center[1]) > walkableClimb)
+			continue;
+
+		const unsigned int idx = allocLink(tile);
+		if (idx == DT_NULL_LINK)
+			continue;
+
+		dtLink& link = tile->links[idx];
+		link.ref = nearRef;
+		link.edge = 0;
+		link.side = 0xff;
+		link.bmin = 0;
+		link.bmax = 0;
+		link.next = poly.firstLink;
+		poly.firstLink = idx;
+	}
+}
+
 void dtNavMesh::connectIntLinks(dtMeshTile* tile)
 {
 	if (!tile) return;
@@ -1037,6 +1086,8 @@ dtStatus dtNavMesh::addTile(unsigned char* data, int dataSize, int flags,
 		connectExtLinks(neis[j], tile, -1);
 		connectExtOffMeshLinks(tile, neis[j], -1);
 		connectExtOffMeshLinks(neis[j], tile, -1);
+		connectLayerLinks(tile, neis[j]);
+		connectLayerLinks(neis[j], tile);
 	}
 	
 	// Connect with neighbour tiles.

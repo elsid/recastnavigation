@@ -8,12 +8,13 @@ add_executable(Tests
 	Recast/Tests_Recast.cpp
 	Recast/Tests_RecastFilter.cpp
 	DetourCrowd/Tests_DetourPathCorridor.cpp
+	Integration/Tests_FindPath.cpp
 )
 
 set_property(TARGET Tests PROPERTY CXX_STANDARD 17)
 
-add_dependencies(Tests Recast Detour DetourCrowd)
-target_link_libraries(Tests Recast Detour DetourCrowd)
+add_dependencies(Tests Recast Detour DetourCrowd DetourTileCache)
+target_link_libraries(Tests Recast Detour DetourCrowd DetourTileCache)
 
 find_package(Catch2 QUIET)
 if (Catch2_FOUND)

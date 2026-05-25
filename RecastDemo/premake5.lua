@@ -230,6 +230,7 @@ project "Tests"
 		"../Tests/Detour/*.h",
 		"../Tests/Detour/*.cpp",
 		"../Tests/DetourCrowd/*.cpp",
+		"../Tests/Integration/*.cpp",
 		"../Tests/Contrib/catch2/*.cpp"
 	}
 
