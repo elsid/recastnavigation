@@ -3,11 +3,14 @@ include_directories(../Recast/Include)
 
 add_executable(Tests
 	Detour/Tests_Detour.cpp
+	Detour/Tests_DetourNavMesh.cpp
 	Recast/Bench_rcVector.cpp
 	Recast/Tests_Alloc.cpp
 	Recast/Tests_Recast.cpp
+	Recast/Tests_RecastMesh.cpp
 	Recast/Tests_RecastFilter.cpp
 	DetourCrowd/Tests_DetourPathCorridor.cpp
+	Integration/Tests_FindPath.cpp
 )
 
 set_property(TARGET Tests PROPERTY CXX_STANDARD 17)
